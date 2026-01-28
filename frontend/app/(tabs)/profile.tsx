@@ -17,6 +17,16 @@ import { useThemeStore } from '../../src/store/themeStore';
 import { useAuthStore } from '../../src/store/authStore';
 import { useDataStore } from '../../src/store/dataStore';
 import { GlassCard } from '../../src/components/GlassCard';
+import {
+  isOfflineDemoEnabled,
+  getOfflineProfile,
+  getOfflineGoal,
+  saveOfflineProfile,
+  saveOfflineGoal,
+  resetOfflineDemo,
+  OfflineProfile,
+  OfflineGoal,
+} from '../../src/lib/offlineStore';
 
 const ACTIVITY_LEVELS = ['sedentary', 'light', 'moderate', 'active', 'very_active'];
 
@@ -24,6 +34,12 @@ export default function ProfileScreen() {
   const { theme } = useThemeStore();
   const { user, signOut } = useAuthStore();
   const { profile, goal, loadUserData, saveProfile, saveGoal } = useDataStore();
+
+  const isOffline = isOfflineDemoEnabled();
+
+  // Offline state
+  const [offlineProfile, setOfflineProfile] = useState<OfflineProfile | null>(null);
+  const [offlineGoal, setOfflineGoal] = useState<OfflineGoal | null>(null);
 
   // Profile fields
   const [height, setHeight] = useState('');
@@ -37,61 +53,119 @@ export default function ProfileScreen() {
   const [waterGoal, setWaterGoal] = useState('');
   const [sleepGoal, setSleepGoal] = useState('');
 
-  useEffect(() => {
-    if (user?.id) {
-      loadUserData(user.id);
-    }
-  }, [user?.id]);
+  const loadOfflineData = async () => {
+    const [profileData, goalData] = await Promise.all([
+      getOfflineProfile(),
+      getOfflineGoal(),
+    ]);
+    setOfflineProfile(profileData);
+    setOfflineGoal(goalData);
+
+    // Pre-fill fields
+    setHeight(profileData.height_cm?.toString() || '');
+    setWeight(profileData.current_weight_kg?.toString() || '');
+    setAge(profileData.age?.toString() || '');
+    setActivityLevel(profileData.activity_level || 'moderate');
+    setTargetWeight(goalData.target_weight_kg?.toString() || '');
+    setCalorieTarget(goalData.daily_calorie_target?.toString() || '');
+    setWaterGoal(goalData.daily_water_goal_ml?.toString() || '');
+    setSleepGoal(goalData.sleep_goal_hours?.toString() || '');
+  };
 
   useEffect(() => {
-    if (profile) {
+    if (isOffline) {
+      loadOfflineData();
+    } else if (user?.id) {
+      loadUserData(user.id);
+    }
+  }, [user?.id, isOffline]);
+
+  useEffect(() => {
+    if (!isOffline && profile) {
       setHeight(profile.height_cm?.toString() || '');
       setWeight(profile.current_weight_kg?.toString() || '');
       setAge(profile.age?.toString() || '');
       setActivityLevel(profile.activity_level || 'moderate');
     }
-  }, [profile]);
+  }, [profile, isOffline]);
 
   useEffect(() => {
-    if (goal) {
+    if (!isOffline && goal) {
       setTargetWeight(goal.target_weight_kg?.toString() || '');
       setCalorieTarget(goal.daily_calorie_target?.toString() || '');
       setWaterGoal(goal.daily_water_goal_ml?.toString() || '');
       setSleepGoal(goal.sleep_goal_hours?.toString() || '');
     }
-  }, [goal]);
+  }, [goal, isOffline]);
 
   const handleSaveProfile = async () => {
-    if (!user?.id) return;
-
-    await saveProfile({
-      user_id: user.id,
+    const profileData = {
       height_cm: parseInt(height) || 170,
       current_weight_kg: parseFloat(weight) || 70,
-      age: parseInt(age) || null,
+      age: parseInt(age) || 30,
       activity_level: activityLevel,
-    });
+    };
 
-    Alert.alert('Success', 'Profile saved!');
+    if (isOffline) {
+      await saveOfflineProfile(profileData);
+      setOfflineProfile(profileData);
+      Alert.alert('Success', 'Profile saved!');
+    } else if (user?.id) {
+      await saveProfile({
+        user_id: user.id,
+        ...profileData,
+      });
+      Alert.alert('Success', 'Profile saved!');
+    }
   };
 
   const handleSaveGoals = async () => {
-    if (!user?.id) return;
-
-    await saveGoal({
-      user_id: user.id,
+    const goalData = {
       target_weight_kg: parseFloat(targetWeight) || 70,
       daily_calorie_target: parseInt(calorieTarget) || 2000,
       daily_water_goal_ml: parseInt(waterGoal) || 2000,
       sleep_goal_hours: parseFloat(sleepGoal) || 8,
-    });
+    };
 
-    Alert.alert('Success', 'Goals saved!');
+    if (isOffline) {
+      await saveOfflineGoal(goalData);
+      setOfflineGoal(goalData);
+      Alert.alert('Success', 'Goals saved!');
+    } else if (user?.id) {
+      await saveGoal({
+        user_id: user.id,
+        ...goalData,
+      });
+      Alert.alert('Success', 'Goals saved!');
+    }
   };
 
   const handleLogout = async () => {
-    await signOut();
-    router.replace('/');
+    if (isOffline) {
+      Alert.alert('Offline Demo', 'You are in offline demo mode. No logout needed.');
+    } else {
+      await signOut();
+      router.replace('/');
+    }
+  };
+
+  const handleResetDemo = async () => {
+    Alert.alert(
+      'Reset Demo Data',
+      'This will reset all demo data to defaults. Continue?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Reset',
+          style: 'destructive',
+          onPress: async () => {
+            await resetOfflineDemo();
+            await loadOfflineData();
+            Alert.alert('Success', 'Demo data has been reset!');
+          },
+        },
+      ]
+    );
   };
 
   return (
@@ -103,9 +177,11 @@ export default function ProfileScreen() {
         {/* Header */}
         <View style={styles.header}>
           <Text style={[styles.headerTitle, { color: theme.text }]}>Profile</Text>
-          <TouchableOpacity onPress={handleLogout} style={styles.logoutButton}>
-            <Ionicons name="log-out-outline" size={24} color={theme.error} />
-          </TouchableOpacity>
+          {!isOffline && (
+            <TouchableOpacity onPress={handleLogout} style={styles.logoutButton}>
+              <Ionicons name="log-out-outline" size={24} color={theme.error} />
+            </TouchableOpacity>
+          )}
         </View>
 
         <ScrollView 
@@ -114,14 +190,26 @@ export default function ProfileScreen() {
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
+          {/* Offline Banner */}
+          {isOffline && (
+            <View style={[styles.offlineBanner, { backgroundColor: theme.warning + '20', borderColor: theme.warning }]}>
+              <Ionicons name="cloud-offline" size={14} color={theme.warning} />
+              <Text style={[styles.offlineBannerText, { color: theme.warning }]}>
+                Offline Demo - data saved locally
+              </Text>
+            </View>
+          )}
+
           {/* User Info */}
           <View style={styles.userCard}>
             <View style={[styles.avatar, { backgroundColor: theme.primary + '20' }]}>
               <Ionicons name="person" size={40} color={theme.primary} />
             </View>
-            <Text style={[styles.userName, { color: theme.text }]}>Demo User</Text>
+            <Text style={[styles.userName, { color: theme.text }]}>
+              {isOffline ? 'Demo User' : 'Demo User'}
+            </Text>
             <Text style={[styles.userEmail, { color: theme.textSecondary }]}>
-              {user?.email || 'demo@fittrack.app'}
+              {isOffline ? 'offline@demo.local' : (user?.email || 'demo@fittrack.app')}
             </Text>
           </View>
 
@@ -262,10 +350,23 @@ export default function ProfileScreen() {
             </TouchableOpacity>
           </GlassCard>
 
+          {/* Reset Demo Data (offline only) */}
+          {isOffline && (
+            <TouchableOpacity 
+              style={[styles.resetButton, { borderColor: theme.error }]}
+              onPress={handleResetDemo}
+            >
+              <Ionicons name="refresh" size={18} color={theme.error} />
+              <Text style={[styles.resetButtonText, { color: theme.error }]}>Reset Demo Data</Text>
+            </TouchableOpacity>
+          )}
+
           {/* App Info */}
           <View style={styles.appInfo}>
             <Text style={[styles.appName, { color: theme.textMuted }]}>FitTrack MVP</Text>
-            <Text style={[styles.version, { color: theme.textMuted }]}>Version 1.0.0</Text>
+            <Text style={[styles.version, { color: theme.textMuted }]}>
+              {isOffline ? 'Offline Demo Mode' : 'Version 1.0.0'}
+            </Text>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -300,6 +401,21 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: 16,
     paddingBottom: 32,
+  },
+  offlineBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 6,
+    borderWidth: 1,
+    marginBottom: 12,
+    gap: 6,
+  },
+  offlineBannerText: {
+    fontSize: 12,
+    fontWeight: '500',
   },
   userCard: {
     alignItems: 'center',
@@ -376,6 +492,20 @@ const styles = StyleSheet.create({
   },
   saveButtonText: {
     color: '#fff',
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  resetButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    borderRadius: 10,
+    borderWidth: 1.5,
+    marginBottom: 16,
+    gap: 8,
+  },
+  resetButtonText: {
     fontSize: 15,
     fontWeight: '600',
   },
