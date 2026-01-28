@@ -42,15 +42,27 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
 
     try {
+      console.log('[Auth] Attempting signInWithPassword with email:', config.demoEmail);
+      
       const { data, error } = await supabase.auth.signInWithPassword({
         email: config.demoEmail,
         password: config.demoPassword,
       });
 
       if (error) {
-        set({ isLoading: false, error: `Login failed: ${error.message}. Please check your demo credentials.` });
+        // Log detailed error info (without password)
+        console.log('[Auth] signInWithPassword ERROR:');
+        console.log('[Auth]   code:', error.code);
+        console.log('[Auth]   name:', error.name);
+        console.log('[Auth]   message:', error.message);
+        console.log('[Auth]   status:', error.status);
+        
+        const errorMsg = `[${error.code || error.name || 'ERROR'}] ${error.message}`;
+        set({ isLoading: false, error: errorMsg });
         return false;
       }
+
+      console.log('[Auth] signInWithPassword SUCCESS, user:', data.user?.email);
 
       if (data.user) {
         // Seed demo data
@@ -62,6 +74,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       set({ isLoading: false, error: 'No user returned from login' });
       return false;
     } catch (err: any) {
+      console.log('[Auth] signInWithPassword EXCEPTION:', err);
       set({ isLoading: false, error: `Unexpected error: ${err.message}` });
       return false;
     }
