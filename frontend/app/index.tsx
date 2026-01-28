@@ -142,46 +142,82 @@ export default function Index() {
           </Text>
         </View>
 
-        {/* Dev-only: Show demo email */}
-        <View style={[styles.devInfo, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-          <Text style={[styles.devLabel, { color: theme.textMuted }]}>DEV - Demo Email:</Text>
-          <Text style={[styles.devValue, { color: theme.text }]}>
-            {config.demoEmail || '(not set)'}
-          </Text>
-        </View>
-
-        {error && (
-          <View style={[styles.errorBox, { backgroundColor: theme.error + '20' }]}>
-            <Ionicons name="alert-circle" size={20} color={theme.error} />
-            <Text style={[styles.errorText, { color: theme.error }]}>{error}</Text>
-          </View>
+        {/* Offline Demo Mode - Primary Button */}
+        {isOffline && (
+          <TouchableOpacity
+            style={[styles.primaryButton, { backgroundColor: theme.success }]}
+            onPress={handleEnterOfflineDemo}
+            disabled={isEnteringDemo}
+          >
+            {isEnteringDemo ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <>
+                <Ionicons name="play-circle" size={20} color="#fff" />
+                <Text style={styles.primaryButtonText}>Enter Demo</Text>
+              </>
+            )}
+          </TouchableOpacity>
         )}
 
-        {/* Dev-only: Show debug log */}
-        {debugLog && (
-          <ScrollView style={[styles.debugLogBox, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-            <Text style={[styles.debugLogText, { color: theme.textSecondary }]}>{debugLog}</Text>
-          </ScrollView>
+        {/* Show Supabase login only if not in offline mode or as secondary option */}
+        {!isOffline && (
+          <>
+            {/* Dev-only: Show demo email */}
+            <View style={[styles.devInfo, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+              <Text style={[styles.devLabel, { color: theme.textMuted }]}>DEV - Demo Email:</Text>
+              <Text style={[styles.devValue, { color: theme.text }]}>
+                {config.demoEmail || '(not set)'}
+              </Text>
+            </View>
+
+            {error && (
+              <View style={[styles.errorBox, { backgroundColor: theme.error + '20' }]}>
+                <Ionicons name="alert-circle" size={20} color={theme.error} />
+                <Text style={[styles.errorText, { color: theme.error }]}>{error}</Text>
+              </View>
+            )}
+
+            {/* Dev-only: Show debug log */}
+            {debugLog && (
+              <ScrollView style={[styles.debugLogBox, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+                <Text style={[styles.debugLogText, { color: theme.textSecondary }]}>{debugLog}</Text>
+              </ScrollView>
+            )}
+
+            <TouchableOpacity
+              style={[styles.primaryButton, { backgroundColor: theme.primary }]}
+              onPress={handleDemoLogin}
+              disabled={isLoading}
+            >
+              {isLoading ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <>
+                  <Ionicons name="rocket" size={20} color="#fff" />
+                  <Text style={styles.primaryButtonText}>Try Demo (Supabase)</Text>
+                </>
+              )}
+            </TouchableOpacity>
+          </>
         )}
 
-        <TouchableOpacity
-          style={[styles.primaryButton, { backgroundColor: theme.primary }]}
-          onPress={handleDemoLogin}
-          disabled={isLoading}
-        >
-          {isLoading ? (
-            <ActivityIndicator color="#fff" />
-          ) : (
-            <>
-              <Ionicons name="rocket" size={20} color="#fff" />
-              <Text style={styles.primaryButtonText}>Try Demo</Text>
-            </>
-          )}
-        </TouchableOpacity>
+        {/* Secondary: Enter offline demo even when Supabase is configured */}
+        {!isOffline && (
+          <TouchableOpacity
+            style={[styles.secondaryButton, { borderColor: theme.success }]}
+            onPress={handleEnterOfflineDemo}
+            disabled={isEnteringDemo}
+          >
+            <Text style={[styles.secondaryButtonText, { color: theme.success }]}>
+              Enter Offline Demo
+            </Text>
+          </TouchableOpacity>
+        )}
 
         {configStatus === 'missing' && (
           <TouchableOpacity
-            style={[styles.secondaryButton, { borderColor: theme.primary }]}
+            style={[styles.secondaryButton, { borderColor: theme.primary, marginTop: 8 }]}
             onPress={() => setShowLogin(false)}
           >
             <Text style={[styles.secondaryButtonText, { color: theme.primary }]}>View Setup Instructions</Text>
