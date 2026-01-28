@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, ScrollView } from 'react-native';
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -9,7 +9,7 @@ import { getSupabaseConfig, initSupabase, resetSupabaseInstance } from '../src/l
 
 export default function Index() {
   const { theme } = useThemeStore();
-  const { user, demoLogin, isLoading, error, checkSession } = useAuthStore();
+  const { user, demoLogin, isLoading, error, debugLog, checkSession } = useAuthStore();
   const [configStatus, setConfigStatus] = useState<'checking' | 'configured' | 'missing'>('checking');
   const [showLogin, setShowLogin] = useState(false);
 
