@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Stack, router } from 'expo-router';
+import { Stack, Redirect } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { View, Text, ActivityIndicator, StyleSheet, TouchableOpacity } from 'react-native';
 import { useThemeStore } from '../src/store/themeStore';
@@ -9,25 +9,20 @@ export default function RootLayout() {
   const { isDark, theme } = useThemeStore();
   const [isReady, setIsReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const isOffline = isOfflineDemoEnabled();
 
   useEffect(() => {
     const init = async () => {
       try {
-        if (isOfflineDemoEnabled()) {
+        if (isOffline) {
           console.log('[App] Offline demo mode enabled');
           const success = await initOfflineDemo();
           if (!success) {
             setError('Failed to initialize offline demo data');
             return;
           }
-          // Small delay to ensure state is ready
-          setTimeout(() => {
-            setIsReady(true);
-            router.replace('/(tabs)');
-          }, 100);
-        } else {
-          setIsReady(true);
         }
+        setIsReady(true);
       } catch (err: any) {
         console.error('[App] Init error:', err);
         setError(err.message || 'Unknown error');
@@ -41,7 +36,6 @@ export default function RootLayout() {
     const success = await resetOfflineDemo();
     if (success) {
       setIsReady(true);
-      router.replace('/(tabs)');
     } else {
       setError('Failed to reset demo data');
     }
@@ -64,8 +58,8 @@ export default function RootLayout() {
     );
   }
 
-  // Show loading while initializing offline demo
-  if (!isReady && isOfflineDemoEnabled()) {
+  // Show loading while initializing
+  if (!isReady) {
     return (
       <View style={[styles.container, { backgroundColor: theme.background }]}>
         <StatusBar style={isDark ? 'light' : 'dark'} />
@@ -77,6 +71,21 @@ export default function RootLayout() {
     );
   }
 
+  // If offline mode, redirect directly to tabs
+  if (isOffline) {
+    return (
+      <>
+        <StatusBar style={isDark ? 'light' : 'dark'} />
+        <Stack screenOptions={{ headerShown: false }}>
+          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+          <Stack.Screen name="index" redirect={true} />
+        </Stack>
+        <Redirect href="/(tabs)" />
+      </>
+    );
+  }
+
+  // Normal mode
   return (
     <>
       <StatusBar style={isDark ? 'light' : 'dark'} />
@@ -87,16 +96,8 @@ export default function RootLayout() {
           animation: 'fade',
         }}
       >
-        {isOfflineDemoEnabled() ? (
-          // In offline mode, only show tabs (no login)
-          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        ) : (
-          // Normal mode with login
-          <>
-            <Stack.Screen name="index" options={{ headerShown: false }} />
-            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-          </>
-        )}
+        <Stack.Screen name="index" options={{ headerShown: false }} />
+        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
       </Stack>
     </>
   );
