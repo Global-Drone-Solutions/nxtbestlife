@@ -108,6 +108,9 @@ export default function Index() {
     );
   }
 
+  // Get config for dev display
+  const config = getSupabaseConfig();
+
   // Login Screen
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
@@ -119,6 +122,14 @@ export default function Index() {
           <Text style={[styles.appName, { color: theme.text }]}>FitTrack</Text>
           <Text style={[styles.tagline, { color: theme.textSecondary }]}>
             Your personal fitness companion
+          </Text>
+        </View>
+
+        {/* Dev-only: Show demo email */}
+        <View style={[styles.devInfo, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+          <Text style={[styles.devLabel, { color: theme.textMuted }]}>DEV - Demo Email:</Text>
+          <Text style={[styles.devValue, { color: theme.text }]}>
+            {config.demoEmail || '(not set)'}
           </Text>
         </View>
 
