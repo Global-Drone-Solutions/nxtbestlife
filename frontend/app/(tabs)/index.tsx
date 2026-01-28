@@ -1,4 +1,4 @@
-import React, { useEffect, useCallback } from 'react';
+import React, { useEffect, useCallback, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -10,6 +10,16 @@ import { useDataStore } from '../../src/store/dataStore';
 import { GlassCard } from '../../src/components/GlassCard';
 import { ProgressBar } from '../../src/components/ProgressBar';
 import { QuickAddButtons } from '../../src/components/QuickAddButtons';
+import { 
+  isOfflineDemoEnabled, 
+  getOfflineGoal, 
+  getOfflineTodayCheckin, 
+  getOfflineChartData,
+  addOfflineWater,
+  OfflineGoal,
+  OfflineCheckin,
+  OfflineChartData,
+} from '../../src/lib/offlineStore';
 
 export default function DashboardScreen() {
   const { theme, isDark, toggleTheme } = useThemeStore();
@@ -27,49 +37,90 @@ export default function DashboardScreen() {
     refreshData,
   } = useDataStore();
 
-  const [refreshing, setRefreshing] = React.useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const isOffline = isOfflineDemoEnabled();
+
+  // Offline state
+  const [offlineGoal, setOfflineGoal] = useState<OfflineGoal | null>(null);
+  const [offlineCheckin, setOfflineCheckin] = useState<OfflineCheckin | null>(null);
+  const [offlineChartData, setOfflineChartData] = useState<OfflineChartData[]>([]);
+
+  const loadOfflineData = async () => {
+    const [goalData, checkinData, chartDataArr] = await Promise.all([
+      getOfflineGoal(),
+      getOfflineTodayCheckin(),
+      getOfflineChartData(),
+    ]);
+    setOfflineGoal(goalData);
+    setOfflineCheckin(checkinData);
+    setOfflineChartData(chartDataArr);
+  };
 
   useEffect(() => {
-    if (user?.id) {
+    if (isOffline) {
+      loadOfflineData();
+    } else if (user?.id) {
       refreshData(user.id);
     }
-  }, [user?.id]);
+  }, [user?.id, isOffline]);
 
   const onRefresh = useCallback(async () => {
-    if (!user?.id) return;
     setRefreshing(true);
-    await refreshData(user.id);
+    if (isOffline) {
+      await loadOfflineData();
+    } else if (user?.id) {
+      await refreshData(user.id);
+    }
     setRefreshing(false);
-  }, [user?.id]);
+  }, [user?.id, isOffline]);
 
   const handleAddWater = async (amount: number) => {
-    if (user?.id) {
+    if (isOffline) {
+      const updated = await addOfflineWater(amount);
+      setOfflineCheckin(updated);
+    } else if (user?.id) {
       await updateWater(user.id, amount);
     }
   };
 
+  // Use offline or online data
+  const currentGoal = isOffline ? offlineGoal : goal;
+  const currentCheckin = isOffline ? offlineCheckin : todayCheckin;
+
   // Calculate calories
-  const targetCalories = goal?.daily_calorie_target || 2000;
-  const consumedCalories = todayCheckin?.total_calories_consumed || 0;
+  const targetCalories = currentGoal?.daily_calorie_target || 2000;
+  const consumedCalories = isOffline 
+    ? (offlineCheckin?.total_calories_consumed || 0)
+    : (todayCheckin?.total_calories_consumed || 0);
   const remainingCalories = targetCalories - consumedCalories;
   const caloriesProgress = consumedCalories / targetCalories;
 
   // Water
-  const waterGoal = goal?.daily_water_goal_ml || 2000;
-  const waterIntake = todayCheckin?.water_intake_ml || 0;
+  const waterGoal = currentGoal?.daily_water_goal_ml || 2000;
+  const waterIntake = isOffline 
+    ? (offlineCheckin?.water_intake_ml || 0)
+    : (todayCheckin?.water_intake_ml || 0);
   const waterProgress = waterIntake / waterGoal;
 
   // Sleep
-  const sleepGoal = goal?.sleep_goal_hours || 8;
-  const sleepHours = todayCheckin?.sleep_hours || 0;
+  const sleepGoal = currentGoal?.sleep_goal_hours || 8;
+  const sleepHours = isOffline 
+    ? (offlineCheckin?.sleep_hours || 0)
+    : (todayCheckin?.sleep_hours || 0);
   const sleepProgress = sleepHours / sleepGoal;
 
   // Chart data
-  const lineData = chartData.map(d => ({
-    value: d.calories,
-    label: d.date,
-    labelTextStyle: { color: theme.textMuted, fontSize: 10 },
-  }));
+  const lineData = isOffline 
+    ? offlineChartData.map(d => ({
+        value: d.calories_burned,
+        label: d.date.slice(5), // MM-DD format
+        labelTextStyle: { color: theme.textMuted, fontSize: 10 },
+      }))
+    : chartData.map(d => ({
+        value: d.calories,
+        label: d.date,
+        labelTextStyle: { color: theme.textMuted, fontSize: 10 },
+      }));
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['top']}>
@@ -93,6 +144,16 @@ export default function DashboardScreen() {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.primary} />
         }
       >
+        {/* Offline Demo Banner */}
+        {isOffline && (
+          <View style={[styles.offlineBanner, { backgroundColor: theme.warning + '20', borderColor: theme.warning }]}>
+            <Ionicons name="cloud-offline" size={16} color={theme.warning} />
+            <Text style={[styles.offlineBannerText, { color: theme.warning }]}>
+              Offline Demo (no cloud)
+            </Text>
+          </View>
+        )}
+
         {/* Calories Card */}
         <GlassCard style={styles.card}>
           <View style={styles.cardHeader}>
@@ -255,6 +316,21 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: 16,
     paddingBottom: 24,
+  },
+  offlineBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    marginBottom: 16,
+    gap: 6,
+  },
+  offlineBannerText: {
+    fontSize: 13,
+    fontWeight: '600',
   },
   card: {
     marginBottom: 16,
