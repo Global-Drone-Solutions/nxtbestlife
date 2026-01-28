@@ -8,6 +8,7 @@ interface AuthState {
   session: Session | null;
   isLoading: boolean;
   error: string | null;
+  debugLog: string | null;
   setUser: (user: User | null) => void;
   setSession: (session: Session | null) => void;
   setError: (error: string | null) => void;
@@ -21,13 +22,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   session: null,
   isLoading: false,
   error: null,
+  debugLog: null,
 
   setUser: (user) => set({ user }),
   setSession: (session) => set({ session, user: session?.user || null }),
   setError: (error) => set({ error }),
 
   demoLogin: async () => {
-    set({ isLoading: true, error: null });
+    set({ isLoading: true, error: null, debugLog: null });
     
     const supabase = getSupabase();
     if (!supabase) {
@@ -41,6 +43,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       return false;
     }
 
+    // Build debug log (no password)
+    const logLines: string[] = [];
+    logLines.push(`[Auth] signInWithPassword`);
+    logLines.push(`  email: ${config.demoEmail}`);
+    logLines.push(`  supabase_url: ${config.url}`);
+
     try {
       console.log('[Auth] Attempting signInWithPassword with email:', config.demoEmail);
       
@@ -51,31 +59,41 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
       if (error) {
         // Log detailed error info (without password)
+        logLines.push(`[Auth] ERROR:`);
+        logLines.push(`  status: ${error.status}`);
+        logLines.push(`  code: ${error.code}`);
+        logLines.push(`  name: ${error.name}`);
+        logLines.push(`  message: ${error.message}`);
+        
         console.log('[Auth] signInWithPassword ERROR:');
+        console.log('[Auth]   email:', config.demoEmail);
+        console.log('[Auth]   status:', error.status);
         console.log('[Auth]   code:', error.code);
         console.log('[Auth]   name:', error.name);
         console.log('[Auth]   message:', error.message);
-        console.log('[Auth]   status:', error.status);
         
         const errorMsg = `[${error.code || error.name || 'ERROR'}] ${error.message}`;
-        set({ isLoading: false, error: errorMsg });
+        set({ isLoading: false, error: errorMsg, debugLog: logLines.join('\n') });
         return false;
       }
 
+      logLines.push(`[Auth] SUCCESS`);
+      logLines.push(`  user: ${data.user?.email}`);
       console.log('[Auth] signInWithPassword SUCCESS, user:', data.user?.email);
 
       if (data.user) {
         // Seed demo data
         await seedDemoData(data.user.id);
-        set({ user: data.user, session: data.session, isLoading: false });
+        set({ user: data.user, session: data.session, isLoading: false, debugLog: logLines.join('\n') });
         return true;
       }
 
-      set({ isLoading: false, error: 'No user returned from login' });
+      set({ isLoading: false, error: 'No user returned from login', debugLog: logLines.join('\n') });
       return false;
     } catch (err: any) {
+      logLines.push(`[Auth] EXCEPTION: ${err.message}`);
       console.log('[Auth] signInWithPassword EXCEPTION:', err);
-      set({ isLoading: false, error: `Unexpected error: ${err.message}` });
+      set({ isLoading: false, error: `Unexpected error: ${err.message}`, debugLog: logLines.join('\n') });
       return false;
     }
   },
