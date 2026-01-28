@@ -18,6 +18,17 @@ import { useAuthStore } from '../../src/store/authStore';
 import { useDataStore } from '../../src/store/dataStore';
 import { GlassCard } from '../../src/components/GlassCard';
 import { QuickAddButtons } from '../../src/components/QuickAddButtons';
+import {
+  isOfflineDemoEnabled,
+  getOfflineTodayCheckin,
+  getOfflineGoal,
+  addOfflineWater,
+  updateOfflineSleep,
+  updateOfflineMeals,
+  addOfflineActivity,
+  OfflineCheckin,
+  OfflineGoal,
+} from '../../src/lib/offlineStore';
 
 const ACTIVITY_TYPES = ['walk', 'run', 'gym', 'swim', 'cycle', 'yoga', 'other'];
 
@@ -34,6 +45,12 @@ export default function CheckInScreen() {
     addActivity,
   } = useDataStore();
 
+  const isOffline = isOfflineDemoEnabled();
+
+  // Offline state
+  const [offlineCheckin, setOfflineCheckin] = useState<OfflineCheckin | null>(null);
+  const [offlineGoal, setOfflineGoal] = useState<OfflineGoal | null>(null);
+
   // Meal inputs
   const [breakfast, setBreakfast] = useState('');
   const [lunch, setLunch] = useState('');
@@ -48,47 +65,78 @@ export default function CheckInScreen() {
   const [activityDuration, setActivityDuration] = useState('');
   const [activityCalories, setActivityCalories] = useState('');
 
+  const loadOfflineData = async () => {
+    const [checkin, goalData] = await Promise.all([
+      getOfflineTodayCheckin(),
+      getOfflineGoal(),
+    ]);
+    setOfflineCheckin(checkin);
+    setOfflineGoal(goalData);
+    
+    // Pre-fill meal inputs
+    setBreakfast(checkin.breakfast_calories?.toString() || '');
+    setLunch(checkin.lunch_calories?.toString() || '');
+    setDinner(checkin.dinner_calories?.toString() || '');
+    setSnacks(checkin.snacks_calories?.toString() || '');
+    setSleepHours(checkin.sleep_hours?.toString() || '');
+  };
+
   useEffect(() => {
-    if (user?.id) {
+    if (isOffline) {
+      loadOfflineData();
+    } else if (user?.id) {
       loadTodayCheckin(user.id);
     }
-  }, [user?.id]);
+  }, [user?.id, isOffline]);
 
   useEffect(() => {
-    if (todayCheckin) {
+    if (!isOffline && todayCheckin) {
       setSleepHours(todayCheckin.sleep_hours?.toString() || '');
     }
-  }, [todayCheckin]);
+  }, [todayCheckin, isOffline]);
 
   const handleAddWater = async (amount: number) => {
-    if (user?.id) {
+    if (isOffline) {
+      const updated = await addOfflineWater(amount);
+      setOfflineCheckin(updated);
+    } else if (user?.id) {
       await updateWater(user.id, amount);
     }
   };
 
   const handleSaveMeals = async () => {
-    if (!user?.id) return;
+    const meals = {
+      breakfast: parseInt(breakfast) || 0,
+      lunch: parseInt(lunch) || 0,
+      dinner: parseInt(dinner) || 0,
+      snacks: parseInt(snacks) || 0,
+    };
 
-    const total = 
-      (parseInt(breakfast) || 0) + 
-      (parseInt(lunch) || 0) + 
-      (parseInt(dinner) || 0) + 
-      (parseInt(snacks) || 0);
-
-    await updateCalories(user.id, total);
-    Alert.alert('Success', 'Meals saved successfully!');
+    if (isOffline) {
+      const updated = await updateOfflineMeals(meals);
+      setOfflineCheckin(updated);
+      Alert.alert('Success', 'Meals saved successfully!');
+    } else if (user?.id) {
+      const total = meals.breakfast + meals.lunch + meals.dinner + meals.snacks;
+      await updateCalories(user.id, total);
+      Alert.alert('Success', 'Meals saved successfully!');
+    }
   };
 
   const handleSaveSleep = async () => {
-    if (!user?.id) return;
     const hours = parseFloat(sleepHours) || 0;
-    await updateSleep(user.id, hours);
-    Alert.alert('Success', 'Sleep hours saved!');
+    
+    if (isOffline) {
+      const updated = await updateOfflineSleep(hours);
+      setOfflineCheckin(updated);
+      Alert.alert('Success', 'Sleep hours saved!');
+    } else if (user?.id) {
+      await updateSleep(user.id, hours);
+      Alert.alert('Success', 'Sleep hours saved!');
+    }
   };
 
   const handleLogActivity = async () => {
-    if (!user?.id) return;
-    
     const duration = parseInt(activityDuration) || 0;
     const calories = parseInt(activityCalories) || 0;
 
@@ -97,20 +145,30 @@ export default function CheckInScreen() {
       return;
     }
 
-    await addActivity(user.id, {
+    const activity = {
       type: activityType,
       duration,
       calories,
-    });
+    };
 
-    // Reset fields
-    setActivityDuration('');
-    setActivityCalories('');
-    Alert.alert('Success', 'Activity logged!');
+    if (isOffline) {
+      const updated = await addOfflineActivity(activity);
+      setOfflineCheckin(updated);
+      setActivityDuration('');
+      setActivityCalories('');
+      Alert.alert('Success', 'Activity logged!');
+    } else if (user?.id) {
+      await addActivity(user.id, activity);
+      setActivityDuration('');
+      setActivityCalories('');
+      Alert.alert('Success', 'Activity logged!');
+    }
   };
 
-  const waterIntake = todayCheckin?.water_intake_ml || 0;
-  const waterGoal = goal?.daily_water_goal_ml || 2000;
+  const currentCheckin = isOffline ? offlineCheckin : todayCheckin;
+  const currentGoal = isOffline ? offlineGoal : goal;
+  const waterIntake = currentCheckin?.water_intake_ml || 0;
+  const waterGoal = currentGoal?.daily_water_goal_ml || 2000;
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['top']}>
@@ -132,6 +190,16 @@ export default function CheckInScreen() {
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
+          {/* Offline Banner */}
+          {isOffline && (
+            <View style={[styles.offlineBanner, { backgroundColor: theme.warning + '20', borderColor: theme.warning }]}>
+              <Ionicons name="cloud-offline" size={14} color={theme.warning} />
+              <Text style={[styles.offlineBannerText, { color: theme.warning }]}>
+                Offline Demo - changes saved locally
+              </Text>
+            </View>
+          )}
+
           {/* Meals Section */}
           <GlassCard style={styles.card}>
             <View style={styles.cardHeader}>
@@ -336,6 +404,21 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: 16,
     paddingBottom: 32,
+  },
+  offlineBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 6,
+    borderWidth: 1,
+    marginBottom: 12,
+    gap: 6,
+  },
+  offlineBannerText: {
+    fontSize: 12,
+    fontWeight: '500',
   },
   card: {
     marginBottom: 16,
