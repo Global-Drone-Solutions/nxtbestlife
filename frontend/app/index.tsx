@@ -6,12 +6,17 @@ import { Ionicons } from '@expo/vector-icons';
 import { useThemeStore } from '../src/store/themeStore';
 import { useAuthStore } from '../src/store/authStore';
 import { getSupabaseConfig, initSupabase, resetSupabaseInstance } from '../src/lib/supabaseClient';
+import { isOfflineDemoEnabled, initOfflineDemo } from '../src/lib/offlineStore';
 
 export default function Index() {
   const { theme } = useThemeStore();
   const { user, demoLogin, isLoading, error, debugLog, checkSession } = useAuthStore();
   const [configStatus, setConfigStatus] = useState<'checking' | 'configured' | 'missing'>('checking');
   const [showLogin, setShowLogin] = useState(false);
+  const [isEnteringDemo, setIsEnteringDemo] = useState(false);
+
+  // Check if offline demo mode is enabled
+  const isOffline = isOfflineDemoEnabled();
 
   const checkConfig = () => {
     setConfigStatus('checking');
@@ -31,14 +36,14 @@ export default function Index() {
   }, []);
 
   useEffect(() => {
-    if (configStatus === 'configured') {
+    if (configStatus === 'configured' && !isOffline) {
       checkSession().then(() => {
         if (useAuthStore.getState().user) {
           router.replace('/(tabs)');
         }
       });
     }
-  }, [configStatus]);
+  }, [configStatus, isOffline]);
 
   useEffect(() => {
     if (user) {
@@ -51,6 +56,18 @@ export default function Index() {
     if (success) {
       router.replace('/(tabs)');
     }
+  };
+
+  // Handle entering offline demo mode
+  const handleEnterOfflineDemo = async () => {
+    setIsEnteringDemo(true);
+    try {
+      await initOfflineDemo();
+      router.replace('/(tabs)');
+    } catch (err) {
+      console.error('Error entering offline demo:', err);
+    }
+    setIsEnteringDemo(false);
   };
 
   // Config not configured screen
