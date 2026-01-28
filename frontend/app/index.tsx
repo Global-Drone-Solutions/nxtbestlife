@@ -140,6 +140,13 @@ export default function Index() {
           </View>
         )}
 
+        {/* Dev-only: Show debug log */}
+        {debugLog && (
+          <ScrollView style={[styles.debugLogBox, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+            <Text style={[styles.debugLogText, { color: theme.textSecondary }]}>{debugLog}</Text>
+          </ScrollView>
+        )}
+
         <TouchableOpacity
           style={[styles.primaryButton, { backgroundColor: theme.primary }]}
           onPress={handleDemoLogin}
