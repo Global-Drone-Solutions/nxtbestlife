@@ -323,4 +323,17 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: 'monospace',
   },
+  debugLogBox: {
+    maxHeight: 120,
+    padding: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+    marginBottom: 12,
+    width: '100%',
+  },
+  debugLogText: {
+    fontSize: 11,
+    fontFamily: 'monospace',
+    lineHeight: 16,
+  },
 });
