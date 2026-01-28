@@ -299,4 +299,21 @@ const styles = StyleSheet.create({
   footerText: {
     fontSize: 13,
   },
+  devInfo: {
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    marginBottom: 16,
+    width: '100%',
+    alignItems: 'center',
+  },
+  devLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  devValue: {
+    fontSize: 14,
+    fontFamily: 'monospace',
+  },
 });
