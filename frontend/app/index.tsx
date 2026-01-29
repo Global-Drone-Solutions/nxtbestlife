@@ -98,7 +98,10 @@ export default function Index() {
   const handleDemoLogin = async () => {
     const success = await demoLogin();
     if (success) {
-      router.replace('/(tabs)');
+      const currentUser = useAuthStore.getState().user;
+      if (currentUser) {
+        await handlePostLoginNavigation(currentUser.id);
+      }
     }
   };
 
