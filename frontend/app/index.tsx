@@ -13,12 +13,53 @@ import * as db from '../src/lib/db';
 export default function Index() {
   const { theme } = useThemeStore();
   const { user, demoLogin, isLoading, error, debugLog, checkSession } = useAuthStore();
+  const { loadUserData } = useDataStore();
   const [configStatus, setConfigStatus] = useState<'checking' | 'configured' | 'missing'>('checking');
   const [showLogin, setShowLogin] = useState(false);
   const [isEnteringDemo, setIsEnteringDemo] = useState(false);
+  const [isCheckingOnboarding, setIsCheckingOnboarding] = useState(false);
 
   // Check if offline demo mode is enabled
   const isOffline = isOfflineDemoEnabled();
+
+  // Check if user needs onboarding (profile or goal missing)
+  const checkOnboardingStatus = async (userId: string): Promise<boolean> => {
+    try {
+      const [profile, goal] = await Promise.all([
+        db.getUserProfile(userId),
+        db.getUserGoal(userId),
+      ]);
+      // Returns true if onboarding is needed (either profile or goal is missing)
+      return !profile || !goal;
+    } catch (err) {
+      console.log('Error checking onboarding status:', err);
+      return true; // Default to needing onboarding on error
+    }
+  };
+
+  // Handle navigation after login
+  const handlePostLoginNavigation = async (userId: string) => {
+    if (isOffline) {
+      // Offline mode skips onboarding
+      router.replace('/(tabs)');
+      return;
+    }
+
+    setIsCheckingOnboarding(true);
+    try {
+      const needsOnboarding = await checkOnboardingStatus(userId);
+      if (needsOnboarding) {
+        router.replace('/onboarding');
+      } else {
+        router.replace('/(tabs)');
+      }
+    } catch (err) {
+      console.error('Error navigating after login:', err);
+      router.replace('/(tabs)'); // Fallback to dashboard
+    } finally {
+      setIsCheckingOnboarding(false);
+    }
+  };
 
   const checkConfig = () => {
     setConfigStatus('checking');
