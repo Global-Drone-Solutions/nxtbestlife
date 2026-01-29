@@ -269,107 +269,203 @@ export default function Index() {
   // Login Screen
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
-      <View style={styles.content}>
-        <View style={styles.logoContainer}>
-          <View style={[styles.logoCircle, { backgroundColor: theme.primary + '20' }]}>
-            <Ionicons name="fitness" size={48} color={theme.primary} />
-          </View>
-          <Text style={[styles.appName, { color: theme.text }]}>FitTrack</Text>
-          <Text style={[styles.tagline, { color: theme.textSecondary }]}>
-            Your personal fitness companion
-          </Text>
-        </View>
-
-        {/* Offline Demo Mode - Primary Button */}
-        {isOffline && (
-          <TouchableOpacity
-            style={[styles.primaryButton, { backgroundColor: theme.success }]}
-            onPress={handleEnterOfflineDemo}
-            disabled={isEnteringDemo}
-          >
-            {isEnteringDemo ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <>
-                <Ionicons name="play-circle" size={20} color="#fff" />
-                <Text style={styles.primaryButtonText}>Enter Demo</Text>
-              </>
-            )}
-          </TouchableOpacity>
-        )}
-
-        {/* Show Supabase login only if not in offline mode or as secondary option */}
-        {!isOffline && (
-          <>
-            {/* Dev-only: Show demo email */}
-            <View style={[styles.devInfo, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-              <Text style={[styles.devLabel, { color: theme.textMuted }]}>DEV - Demo Email:</Text>
-              <Text style={[styles.devValue, { color: theme.text }]}>
-                {config.demoEmail || '(not set)'}
-              </Text>
+      <KeyboardAvoidingView 
+        style={styles.keyboardView}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
+        <ScrollView 
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          <View style={styles.logoContainer}>
+            <View style={[styles.logoCircle, { backgroundColor: theme.primary + '20' }]}>
+              <Ionicons name="fitness" size={48} color={theme.primary} />
             </View>
+            <Text style={[styles.appName, { color: theme.text }]}>FitTrack</Text>
+            <Text style={[styles.tagline, { color: theme.textSecondary }]}>
+              Your personal fitness companion
+            </Text>
+          </View>
 
-            {error && (
-              <View style={[styles.errorBox, { backgroundColor: theme.error + '20' }]}>
-                <Ionicons name="alert-circle" size={20} color={theme.error} />
-                <Text style={[styles.errorText, { color: theme.error }]}>{error}</Text>
-              </View>
-            )}
-
-            {/* Dev-only: Show debug log */}
-            {debugLog && (
-              <ScrollView style={[styles.debugLogBox, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-                <Text style={[styles.debugLogText, { color: theme.textSecondary }]}>{debugLog}</Text>
-              </ScrollView>
-            )}
-
+          {/* Offline Demo Mode - Primary Button */}
+          {isOffline && (
             <TouchableOpacity
-              style={[styles.primaryButton, { backgroundColor: theme.primary }]}
-              onPress={handleDemoLogin}
-              disabled={isLoading}
+              style={[styles.primaryButton, { backgroundColor: theme.success }]}
+              onPress={handleEnterOfflineDemo}
+              disabled={isEnteringDemo}
             >
-              {isLoading ? (
+              {isEnteringDemo ? (
                 <ActivityIndicator color="#fff" />
               ) : (
                 <>
-                  <Ionicons name="log-in" size={20} color="#fff" />
-                  <Text style={styles.primaryButtonText}>Login</Text>
+                  <Ionicons name="play-circle" size={20} color="#fff" />
+                  <Text style={styles.primaryButtonText}>Enter Demo</Text>
                 </>
               )}
             </TouchableOpacity>
-          </>
-        )}
+          )}
 
-        {/* Secondary: Enter offline demo even when Supabase is configured */}
-        {!isOffline && (
-          <TouchableOpacity
-            style={[styles.secondaryButton, { borderColor: theme.success }]}
-            onPress={handleEnterOfflineDemo}
-            disabled={isEnteringDemo}
-          >
-            <Text style={[styles.secondaryButtonText, { color: theme.success }]}>
-              Enter Offline Demo
-            </Text>
-          </TouchableOpacity>
-        )}
+          {/* Show Supabase login only if not in offline mode */}
+          {!isOffline && (
+            <>
+              {/* Auth Mode Tabs */}
+              <View style={[styles.authTabs, { backgroundColor: theme.surface }]}>
+                <TouchableOpacity
+                  style={[
+                    styles.authTab,
+                    authMode === 'login' && { backgroundColor: theme.primary }
+                  ]}
+                  onPress={() => switchAuthMode()}
+                  disabled={authMode === 'login'}
+                >
+                  <Text style={[
+                    styles.authTabText,
+                    { color: authMode === 'login' ? '#fff' : theme.textSecondary }
+                  ]}>
+                    Login
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.authTab,
+                    authMode === 'signup' && { backgroundColor: theme.primary }
+                  ]}
+                  onPress={() => switchAuthMode()}
+                  disabled={authMode === 'signup'}
+                >
+                  <Text style={[
+                    styles.authTabText,
+                    { color: authMode === 'signup' ? '#fff' : theme.textSecondary }
+                  ]}>
+                    Sign Up
+                  </Text>
+                </TouchableOpacity>
+              </View>
 
-        {configStatus === 'missing' && (
-          <TouchableOpacity
-            style={[styles.secondaryButton, { borderColor: theme.primary, marginTop: 8 }]}
-            onPress={() => setShowLogin(false)}
-          >
-            <Text style={[styles.secondaryButtonText, { color: theme.primary }]}>View Setup Instructions</Text>
-          </TouchableOpacity>
-        )}
+              {/* Error Display */}
+              {error && (
+                <View style={[styles.errorBox, { backgroundColor: theme.error + '20' }]}>
+                  <Ionicons name="alert-circle" size={20} color={theme.error} />
+                  <Text style={[styles.errorText, { color: theme.error }]}>{error}</Text>
+                </View>
+              )}
 
-        <TouchableOpacity
-          style={styles.retryLink}
-          onPress={checkConfig}
-        >
-          <Ionicons name="refresh" size={16} color={theme.textMuted} />
-          <Text style={[styles.retryText, { color: theme.textMuted }]}>Retry Config</Text>
-        </TouchableOpacity>
-      </View>
+              {/* Email Input */}
+              <View style={styles.inputContainer}>
+                <Text style={[styles.inputLabel, { color: theme.textSecondary }]}>Email</Text>
+                <View style={[styles.inputWrapper, { borderColor: theme.border, backgroundColor: theme.surface }]}>
+                  <Ionicons name="mail-outline" size={20} color={theme.textMuted} style={styles.inputIcon} />
+                  <TextInput
+                    style={[styles.input, { color: theme.text }]}
+                    placeholder="Enter your email"
+                    placeholderTextColor={theme.textMuted}
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    value={email}
+                    onChangeText={setEmail}
+                  />
+                </View>
+              </View>
+
+              {/* Password Input */}
+              <View style={styles.inputContainer}>
+                <Text style={[styles.inputLabel, { color: theme.textSecondary }]}>Password</Text>
+                <View style={[styles.inputWrapper, { borderColor: theme.border, backgroundColor: theme.surface }]}>
+                  <Ionicons name="lock-closed-outline" size={20} color={theme.textMuted} style={styles.inputIcon} />
+                  <TextInput
+                    style={[styles.input, { color: theme.text }]}
+                    placeholder={authMode === 'signup' ? 'Min 6 characters' : 'Enter your password'}
+                    placeholderTextColor={theme.textMuted}
+                    secureTextEntry={!showPassword}
+                    value={password}
+                    onChangeText={setPassword}
+                  />
+                  <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={styles.eyeButton}>
+                    <Ionicons 
+                      name={showPassword ? 'eye-off-outline' : 'eye-outline'} 
+                      size={20} 
+                      color={theme.textMuted} 
+                    />
+                  </TouchableOpacity>
+                </View>
+              </View>
+
+              {/* Confirm Password (Sign Up only) */}
+              {authMode === 'signup' && (
+                <View style={styles.inputContainer}>
+                  <Text style={[styles.inputLabel, { color: theme.textSecondary }]}>Confirm Password</Text>
+                  <View style={[styles.inputWrapper, { borderColor: theme.border, backgroundColor: theme.surface }]}>
+                    <Ionicons name="lock-closed-outline" size={20} color={theme.textMuted} style={styles.inputIcon} />
+                    <TextInput
+                      style={[styles.input, { color: theme.text }]}
+                      placeholder="Re-enter your password"
+                      placeholderTextColor={theme.textMuted}
+                      secureTextEntry={!showPassword}
+                      value={confirmPassword}
+                      onChangeText={setConfirmPassword}
+                    />
+                  </View>
+                </View>
+              )}
+
+              {/* Submit Button */}
+              <TouchableOpacity
+                style={[styles.primaryButton, { backgroundColor: theme.primary }]}
+                onPress={authMode === 'login' ? handleLogin : handleSignUp}
+                disabled={isLoading}
+              >
+                {isLoading ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <>
+                    <Ionicons name={authMode === 'login' ? 'log-in' : 'person-add'} size={20} color="#fff" />
+                    <Text style={styles.primaryButtonText}>
+                      {authMode === 'login' ? 'Login' : 'Sign Up'}
+                    </Text>
+                  </>
+                )}
+              </TouchableOpacity>
+
+              {/* Demo Login Link */}
+              {config.hasDemoCredentials && (
+                <TouchableOpacity
+                  style={styles.demoLink}
+                  onPress={handleDemoLogin}
+                  disabled={isLoading}
+                >
+                  <Text style={[styles.demoLinkText, { color: theme.primary }]}>
+                    Use Demo Account
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </>
+          )}
+
+          {/* Secondary: Enter offline demo even when Supabase is configured */}
+          {!isOffline && (
+            <TouchableOpacity
+              style={[styles.secondaryButton, { borderColor: theme.success }]}
+              onPress={handleEnterOfflineDemo}
+              disabled={isEnteringDemo}
+            >
+              <Text style={[styles.secondaryButtonText, { color: theme.success }]}>
+                Enter Offline Demo
+              </Text>
+            </TouchableOpacity>
+          )}
+
+          {configStatus === 'missing' && (
+            <TouchableOpacity
+              style={[styles.secondaryButton, { borderColor: theme.primary, marginTop: 8 }]}
+              onPress={() => setShowLogin(false)}
+            >
+              <Text style={[styles.secondaryButtonText, { color: theme.primary }]}>View Setup Instructions</Text>
+            </TouchableOpacity>
+          )}
+        </ScrollView>
+      </KeyboardAvoidingView>
 
       <View style={styles.footer}>
         <Text style={[styles.footerText, { color: theme.textMuted }]}>
