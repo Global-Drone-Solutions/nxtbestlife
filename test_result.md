@@ -211,3 +211,14 @@ agent_communication:
       5. Updated README to document that backend/ is not used
       
       Please test the Supabase database operations. Note: Testing requires valid Supabase credentials in .env file.
+
+  - agent: "main"
+    message: |
+      Implemented mandatory onboarding flow for online Supabase mode:
+      1. Created new onboarding page at /app/frontend/app/onboarding.tsx
+      2. Form includes: height, weight, age, activity_level (profile) + target_weight, calorie_target, water_goal, sleep_goal (goals)
+      3. Validation ensures all fields are filled before submitting
+      4. After login, system checks if profile AND goal exist - redirects to /onboarding if either is missing
+      5. After completing onboarding, user is redirected to Dashboard
+      6. Returning users with existing profile+goal skip onboarding and go directly to Dashboard
+      7. Offline mode bypasses onboarding entirely
