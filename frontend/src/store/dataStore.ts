@@ -154,6 +154,29 @@ export const useDataStore = create<DataState>((set, get) => ({
     }
   },
 
+  saveMeals: async (userId: string, meals: MealInputs) => {
+    const { todayCheckin } = get();
+    if (!todayCheckin) return;
+
+    // Calculate total calories
+    const total = meals.breakfast + meals.lunch + meals.dinner + meals.snacks;
+    
+    // Update daily_checkins with total calories
+    const updatedCheckin = await db.upsertDailyCheckin({
+      ...todayCheckin,
+      user_id: userId,
+      total_calories_consumed: total,
+    });
+    
+    if (updatedCheckin) {
+      set({ todayCheckin: updatedCheckin });
+      
+      // Write individual meal records to meals table
+      const savedMeals = await db.upsertMeals(userId, todayCheckin.id, meals);
+      set({ todayMeals: savedMeals });
+    }
+  },
+
   saveProfile: async (profile: Partial<UserProfile> & { user_id: string }) => {
     const updated = await db.upsertUserProfile(profile);
     if (updated) {
