@@ -118,6 +118,84 @@ export default function Index() {
     }
   };
 
+  // Handle login with email/password
+  const handleLogin = async () => {
+    // Clear previous errors
+    setError(null);
+
+    // Validate email
+    if (!email.trim()) {
+      setError('Please enter your email');
+      return;
+    }
+    if (!isValidEmail(email)) {
+      setError('Please enter a valid email address');
+      return;
+    }
+
+    // Validate password
+    if (!password) {
+      setError('Please enter your password');
+      return;
+    }
+
+    const success = await login(email.trim(), password);
+    if (success) {
+      const currentUser = useAuthStore.getState().user;
+      if (currentUser) {
+        await handlePostLoginNavigation(currentUser.id);
+      }
+    }
+  };
+
+  // Handle sign up with email/password
+  const handleSignUp = async () => {
+    // Clear previous errors
+    setError(null);
+
+    // Validate email
+    if (!email.trim()) {
+      setError('Please enter your email');
+      return;
+    }
+    if (!isValidEmail(email)) {
+      setError('Please enter a valid email address');
+      return;
+    }
+
+    // Validate password
+    if (!password) {
+      setError('Please enter a password');
+      return;
+    }
+    if (password.length < 6) {
+      setError('Password must be at least 6 characters');
+      return;
+    }
+
+    // Validate confirm password
+    if (password !== confirmPassword) {
+      setError('Passwords do not match');
+      return;
+    }
+
+    const success = await signUp(email.trim(), password);
+    if (success) {
+      const currentUser = useAuthStore.getState().user;
+      if (currentUser) {
+        await handlePostLoginNavigation(currentUser.id);
+      }
+    }
+  };
+
+  // Switch between login and signup modes
+  const switchAuthMode = () => {
+    setAuthMode(authMode === 'login' ? 'signup' : 'login');
+    setError(null);
+    setPassword('');
+    setConfirmPassword('');
+  };
+
   // Handle entering offline demo mode
   const handleEnterOfflineDemo = async () => {
     setIsEnteringDemo(true);
