@@ -93,20 +93,9 @@ export default function Index() {
 
   useEffect(() => {
     if (configStatus === 'configured' && !isOffline) {
-      checkSession().then(() => {
-        const currentUser = useAuthStore.getState().user;
-        if (currentUser) {
-          handlePostLoginNavigation(currentUser.id);
-        }
-      });
+      checkSession();
     }
   }, [configStatus, isOffline]);
-
-  useEffect(() => {
-    if (user && !isCheckingOnboarding) {
-      handlePostLoginNavigation(user.id);
-    }
-  }, [user]);
 
   const handleDemoLogin = async () => {
     const success = await demoLogin();
