@@ -1,21 +1,31 @@
 import { create } from 'zustand';
-import { UserProfile, UserGoal, DailyCheckin, Activity } from '../types/db';
+import { UserProfile, UserGoal, DailyCheckin, Activity, Meal } from '../types/db';
 import * as db from '../lib/db';
+
+interface MealInputs {
+  breakfast: number;
+  lunch: number;
+  dinner: number;
+  snacks: number;
+}
 
 interface DataState {
   profile: UserProfile | null;
   goal: UserGoal | null;
   todayCheckin: DailyCheckin | null;
+  todayMeals: Meal[];
   recentActivities: Activity[];
   chartData: { date: string; calories: number }[];
   isLoading: boolean;
   
   loadUserData: (userId: string) => Promise<void>;
   loadTodayCheckin: (userId: string) => Promise<void>;
+  loadTodayMeals: (checkinId: string) => Promise<void>;
   loadChartData: (userId: string) => Promise<void>;
   updateWater: (userId: string, amount: number) => Promise<void>;
   updateSleep: (userId: string, hours: number) => Promise<void>;
   updateCalories: (userId: string, calories: number) => Promise<void>;
+  saveMeals: (userId: string, meals: MealInputs) => Promise<void>;
   saveProfile: (profile: Partial<UserProfile> & { user_id: string }) => Promise<void>;
   saveGoal: (goal: Partial<UserGoal> & { user_id: string }) => Promise<void>;
   addActivity: (userId: string, activity: { type: string; duration: number; calories: number }) => Promise<void>;
