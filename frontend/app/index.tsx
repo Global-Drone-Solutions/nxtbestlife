@@ -94,9 +94,22 @@ export default function Index() {
 
   useEffect(() => {
     if (configStatus === 'configured' && !isOffline) {
-      checkSession();
+      // Run checkSession and mark auth as checked when complete
+      checkSession().finally(() => {
+        setIsAuthChecked(true);
+      });
+    } else if (isOffline) {
+      // In offline mode, auth check is not needed
+      setIsAuthChecked(true);
     }
   }, [configStatus, isOffline]);
+
+  // Navigate to dashboard if user is authenticated after auth check
+  useEffect(() => {
+    if (isAuthChecked && user && !isCheckingOnboarding) {
+      handlePostLoginNavigation(user.id);
+    }
+  }, [isAuthChecked, user]);
 
   const handleDemoLogin = async () => {
     const success = await demoLogin();
