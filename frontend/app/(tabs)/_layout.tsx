@@ -1,34 +1,41 @@
-import React, { useEffect, useState } from 'react';
-import { Tabs, Redirect } from 'expo-router';
+import React, { useEffect, useRef } from 'react';
+import { Tabs } from 'expo-router';
+import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useThemeStore } from '../../src/store/themeStore';
 import { useAuthStore } from '../../src/store/authStore';
 import { isOfflineDemoEnabled } from '../../src/lib/offlineStore';
-import { View, Platform } from 'react-native';
+import { View, Platform, ActivityIndicator, Text } from 'react-native';
 
 export default function TabsLayout() {
   const { theme } = useThemeStore();
   const { user } = useAuthStore();
   const isOffline = isOfflineDemoEnabled();
-  const [shouldRedirect, setShouldRedirect] = useState(false);
-
-  // Check auth on mount only
-  useEffect(() => {
-    if (!isOffline && !user) {
-      console.log('[TabsLayout] No user and not offline, will redirect to login');
-      setShouldRedirect(true);
-    }
-  }, []); // Only run once on mount
+  const hasRedirected = useRef(false);
 
   // Auth guard: redirect to login if not authenticated
-  if (shouldRedirect) {
-    return <Redirect href="/" />;
+  // This runs on mount AND when user changes (e.g., after logout)
+  useEffect(() => {
+    if (!isOffline && !user && !hasRedirected.current) {
+      hasRedirected.current = true;
+      console.log('[TabsLayout] No user and not offline, redirecting to login');
+      router.replace('/');
+    }
+  }, [user, isOffline]);
+
+  // If not authenticated and not offline, show loading while redirecting
+  if (!isOffline && !user) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: theme.background }}>
+        <ActivityIndicator size="large" color={theme.primary} />
+        <Text style={{ marginTop: 16, color: theme.textSecondary }}>Redirecting...</Text>
+      </View>
+    );
   }
 
   // If offline mode or user exists, render tabs
-  if (isOffline || user) {
-    return (
-      <Tabs
+  return (
+    <Tabs
       screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: theme.primary,
