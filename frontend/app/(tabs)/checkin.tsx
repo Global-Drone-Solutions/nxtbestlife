@@ -37,11 +37,12 @@ export default function CheckInScreen() {
   const { user } = useAuthStore();
   const { 
     todayCheckin, 
+    todayMeals,
     goal,
     loadTodayCheckin,
     updateWater, 
     updateSleep, 
-    updateCalories,
+    saveMeals,
     addActivity,
   } = useDataStore();
 
@@ -88,6 +89,21 @@ export default function CheckInScreen() {
       loadTodayCheckin(user.id);
     }
   }, [user?.id, isOffline]);
+
+  // Pre-fill meal inputs from online data (todayMeals)
+  useEffect(() => {
+    if (!isOffline && todayMeals.length > 0) {
+      const breakfastMeal = todayMeals.find(m => m.meal_type === 'breakfast');
+      const lunchMeal = todayMeals.find(m => m.meal_type === 'lunch');
+      const dinnerMeal = todayMeals.find(m => m.meal_type === 'dinner');
+      const snackMeal = todayMeals.find(m => m.meal_type === 'snack');
+      
+      setBreakfast(breakfastMeal?.estimated_calories?.toString() || '');
+      setLunch(lunchMeal?.estimated_calories?.toString() || '');
+      setDinner(dinnerMeal?.estimated_calories?.toString() || '');
+      setSnacks(snackMeal?.estimated_calories?.toString() || '');
+    }
+  }, [todayMeals, isOffline]);
 
   useEffect(() => {
     if (!isOffline && todayCheckin) {
