@@ -77,14 +77,22 @@ export const upsertUserGoal = async (goal: Partial<UserGoal> & { user_id: string
   const supabase = getSupabase();
   if (!supabase) return null;
 
+  // First, deactivate all existing goals for this user
+  await supabase
+    .from('user_goals')
+    .update({ is_active: false, updated_at: new Date().toISOString() })
+    .eq('user_id', goal.user_id)
+    .eq('is_active', true);
+
+  // Then insert the new goal as active
   const { data, error } = await supabase
     .from('user_goals')
-    .upsert({ ...goal, updated_at: new Date().toISOString() })
+    .insert({ ...goal, is_active: true, updated_at: new Date().toISOString() })
     .select()
     .single();
 
   if (error) {
-    console.log('Error upserting goal:', error.message);
+    console.log('Error inserting goal:', error.message);
     return null;
   }
   return data;
