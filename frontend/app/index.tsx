@@ -159,13 +159,13 @@ export default function Index() {
   }
 
   // Checking config
-  if (configStatus === 'checking') {
+  if (configStatus === 'checking' || isCheckingOnboarding) {
     return (
       <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
         <View style={styles.content}>
           <ActivityIndicator size="large" color={theme.primary} />
           <Text style={[styles.subtitle, { color: theme.textSecondary, marginTop: 16 }]}>
-            Checking configuration...
+            {isCheckingOnboarding ? 'Checking your profile...' : 'Checking configuration...'}
           </Text>
         </View>
       </SafeAreaView>
