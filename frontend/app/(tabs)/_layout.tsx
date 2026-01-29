@@ -1,6 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { Tabs } from 'expo-router';
-import { router } from 'expo-router';
+import { Tabs, Redirect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useThemeStore } from '../../src/store/themeStore';
 import { useAuthStore } from '../../src/store/authStore';
@@ -11,28 +10,11 @@ export default function TabsLayout() {
   const { theme } = useThemeStore();
   const { user } = useAuthStore();
   const isOffline = isOfflineDemoEnabled();
-  const hasRedirected = useRef(false);
 
-  // Auth guard: redirect to login if not authenticated (runs once on mount)
-  useEffect(() => {
-    if (!isOffline && !user && !hasRedirected.current) {
-      hasRedirected.current = true;
-      console.log('[TabsLayout] No user and not offline, redirecting to login');
-      // Use setTimeout to avoid state update during render
-      setTimeout(() => {
-        router.replace('/');
-      }, 0);
-    }
-  }, []);
-
-  // If not authenticated and not offline, show loading (redirect will happen)
+  // Auth guard: redirect to login if not authenticated (use Redirect component)
   if (!isOffline && !user) {
-    return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: theme.background }}>
-        <ActivityIndicator size="large" color={theme.primary} />
-        <Text style={{ marginTop: 16, color: theme.textSecondary }}>Checking authentication...</Text>
-      </View>
-    );
+    console.log('[TabsLayout] No user and not offline, redirecting to login');
+    return <Redirect href="/" />;
   }
 
   return (
