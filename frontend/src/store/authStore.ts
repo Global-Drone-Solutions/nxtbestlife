@@ -1,34 +1,41 @@
 import { create } from 'zustand';
-import { User, Session } from '@supabase/supabase-js';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getSupabase, getSupabaseConfig } from '../lib/supabaseClient';
-import { seedDemoData } from '../lib/seedDemo';
+
+// Custom user type for our app_users table
+export interface AppUser {
+  id: string;
+  email: string;
+  created_at?: string;
+  updated_at?: string;
+}
 
 interface AuthState {
-  user: User | null;
-  session: Session | null;
+  user: AppUser | null;
   isLoading: boolean;
   error: string | null;
   debugLog: string | null;
-  setUser: (user: User | null) => void;
-  setSession: (session: Session | null) => void;
+  setUser: (user: AppUser | null) => void;
   setError: (error: string | null) => void;
+  login: (email: string, password: string) => Promise<boolean>;
   demoLogin: () => Promise<boolean>;
   signOut: () => Promise<void>;
   checkSession: () => Promise<void>;
 }
 
+const AUTH_STORAGE_KEY = '@fittrack_auth_user';
+
 export const useAuthStore = create<AuthState>((set, get) => ({
   user: null,
-  session: null,
   isLoading: false,
   error: null,
   debugLog: null,
 
   setUser: (user) => set({ user }),
-  setSession: (session) => set({ session, user: session?.user || null }),
   setError: (error) => set({ error }),
 
-  demoLogin: async () => {
+  // Custom login using app_users table
+  login: async (email: string, password: string) => {
     set({ isLoading: true, error: null, debugLog: null });
     
     const supabase = getSupabase();
@@ -37,83 +44,98 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       return false;
     }
 
-    const config = getSupabaseConfig();
-    if (!config.hasDemoCredentials) {
-      set({ isLoading: false, error: 'Demo credentials not configured. Please set EXPO_PUBLIC_DEMO_EMAIL and EXPO_PUBLIC_DEMO_PASSWORD.' });
-      return false;
-    }
-
-    // Build debug log (no password)
     const logLines: string[] = [];
-    logLines.push(`[Auth] signInWithPassword`);
-    logLines.push(`  email: ${config.demoEmail}`);
-    logLines.push(`  supabase_url: ${config.url}`);
+    logLines.push(`[Auth] Custom login with app_users table`);
+    logLines.push(`  email: ${email}`);
 
     try {
-      console.log('[Auth] Attempting signInWithPassword with email:', config.demoEmail);
+      console.log('[Auth] Attempting custom login with email:', email);
       
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email: config.demoEmail,
-        password: config.demoPassword,
-      });
+      // Query the app_users table for matching credentials
+      const { data, error } = await supabase
+        .from('app_users')
+        .select('id, email, created_at, updated_at')
+        .eq('email', email)
+        .eq('password_hash', password)
+        .single();
 
       if (error) {
-        // Log detailed error info (without password)
         logLines.push(`[Auth] ERROR:`);
-        logLines.push(`  status: ${error.status}`);
         logLines.push(`  code: ${error.code}`);
-        logLines.push(`  name: ${error.name}`);
         logLines.push(`  message: ${error.message}`);
         
-        console.log('[Auth] signInWithPassword ERROR:');
-        console.log('[Auth]   email:', config.demoEmail);
-        console.log('[Auth]   status:', error.status);
-        console.log('[Auth]   code:', error.code);
-        console.log('[Auth]   name:', error.name);
-        console.log('[Auth]   message:', error.message);
+        console.log('[Auth] Login ERROR:', error);
         
-        const errorMsg = `[${error.code || error.name || 'ERROR'}] ${error.message}`;
+        let errorMsg = 'Invalid email or password';
+        if (error.code === 'PGRST116') {
+          errorMsg = 'Invalid email or password';
+        } else {
+          errorMsg = error.message;
+        }
+        
         set({ isLoading: false, error: errorMsg, debugLog: logLines.join('\n') });
         return false;
       }
 
-      logLines.push(`[Auth] SUCCESS`);
-      logLines.push(`  user: ${data.user?.email}`);
-      console.log('[Auth] signInWithPassword SUCCESS, user:', data.user?.email);
-
-      if (data.user) {
-        // Seed demo data
-        await seedDemoData(data.user.id);
-        set({ user: data.user, session: data.session, isLoading: false, debugLog: logLines.join('\n') });
-        return true;
+      if (!data) {
+        logLines.push(`[Auth] No user found`);
+        set({ isLoading: false, error: 'Invalid email or password', debugLog: logLines.join('\n') });
+        return false;
       }
 
-      set({ isLoading: false, error: 'No user returned from login', debugLog: logLines.join('\n') });
-      return false;
+      logLines.push(`[Auth] SUCCESS`);
+      logLines.push(`  user_id: ${data.id}`);
+      logLines.push(`  email: ${data.email}`);
+      console.log('[Auth] Login SUCCESS, user:', data.email);
+
+      const appUser: AppUser = {
+        id: data.id,
+        email: data.email,
+        created_at: data.created_at,
+        updated_at: data.updated_at,
+      };
+
+      // Save user to AsyncStorage for session persistence
+      await AsyncStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(appUser));
+      
+      set({ user: appUser, isLoading: false, debugLog: logLines.join('\n') });
+      return true;
+
     } catch (err: any) {
       logLines.push(`[Auth] EXCEPTION: ${err.message}`);
-      console.log('[Auth] signInWithPassword EXCEPTION:', err);
+      console.log('[Auth] Login EXCEPTION:', err);
       set({ isLoading: false, error: `Unexpected error: ${err.message}`, debugLog: logLines.join('\n') });
       return false;
     }
   },
 
-  signOut: async () => {
-    const supabase = getSupabase();
-    if (supabase) {
-      await supabase.auth.signOut();
+  // Demo login using environment variables
+  demoLogin: async () => {
+    const config = getSupabaseConfig();
+    if (!config.hasDemoCredentials) {
+      set({ error: 'Demo credentials not configured. Please set EXPO_PUBLIC_DEMO_EMAIL and EXPO_PUBLIC_DEMO_PASSWORD.' });
+      return false;
     }
-    set({ user: null, session: null });
+    
+    return get().login(config.demoEmail, config.demoPassword);
+  },
+
+  signOut: async () => {
+    try {
+      await AsyncStorage.removeItem(AUTH_STORAGE_KEY);
+    } catch (err) {
+      console.log('Error removing auth storage:', err);
+    }
+    set({ user: null });
   },
 
   checkSession: async () => {
-    const supabase = getSupabase();
-    if (!supabase) return;
-
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session) {
-        set({ session, user: session.user });
+      const storedUser = await AsyncStorage.getItem(AUTH_STORAGE_KEY);
+      if (storedUser) {
+        const user = JSON.parse(storedUser) as AppUser;
+        console.log('[Auth] Restored session for user:', user.email);
+        set({ user });
       }
     } catch (err) {
       console.log('Error checking session:', err);
