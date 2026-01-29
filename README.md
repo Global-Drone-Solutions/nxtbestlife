@@ -17,10 +17,18 @@ A production-ready mobile fitness tracking app built with Expo React Native + Ty
 
 - **Frontend**: Expo React Native + TypeScript
 - **Navigation**: Expo Router (file-based routing)
-- **Backend**: Supabase (PostgreSQL + Auth + RLS)
+- **Database**: Supabase (PostgreSQL + RLS)
 - **State**: Zustand
 - **Charts**: react-native-gifted-charts
 - **UI**: Custom glassmorphic design system
+
+## Architecture Note
+
+> **⚠️ The `backend/` directory is NOT USED in production.**
+> 
+> This app uses a **client-direct architecture** where the Expo frontend communicates directly with Supabase (PostgreSQL). The `backend/` folder contains a placeholder FastAPI + MongoDB template that was part of the starter kit but is not integrated with the app.
+> 
+> All data operations (CRUD) are performed via the Supabase JavaScript client in `frontend/src/lib/db.ts`.
 
 ## Quick Start
 
@@ -55,6 +63,7 @@ frontend/
 │   └── types/            # TypeScript types
 supabase/
 └── migrations/           # SQL migrations
+backend/                   # ⚠️ NOT USED - Placeholder only
 docs/
 └── SETUP.md             # Setup instructions
 ```
