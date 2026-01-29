@@ -18,6 +18,7 @@ export default function Index() {
   const [showLogin, setShowLogin] = useState(false);
   const [isEnteringDemo, setIsEnteringDemo] = useState(false);
   const [isCheckingOnboarding, setIsCheckingOnboarding] = useState(false);
+  const [isAuthChecked, setIsAuthChecked] = useState(false);
   
   // Auth form state
   const [authMode, setAuthMode] = useState<'login' | 'signup'>('login');
