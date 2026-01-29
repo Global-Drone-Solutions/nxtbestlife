@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { getSupabase, getSupabaseConfig } from '../lib/supabaseClient';
+import { getSupabase, getSupabaseConfig, resetSupabaseInstance } from '../lib/supabaseClient';
 
 // User type that works with Supabase Auth
 export interface AppUser {
