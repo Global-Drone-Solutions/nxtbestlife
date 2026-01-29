@@ -84,18 +84,20 @@ export const useDataStore = create<DataState>((set, get) => ({
       const checkins = await db.getCheckinsForDates(userId, dates);
       const activities = await db.getActivitiesLastNDays(userId, 7);
 
-      // Map activities by checkin_id with type annotation
-      const activityByCheckin: Record<string, Activity> = {};
+      // Aggregate activities by checkin_id (sum calories for same day)
+      const activityCaloriesByCheckin: Record<string, number> = {};
       activities.forEach(a => {
-        activityByCheckin[a.checkin_id] = a;
+        const checkinId = a.checkin_id;
+        const calories = a.calories_burned || 0;
+        activityCaloriesByCheckin[checkinId] = (activityCaloriesByCheckin[checkinId] || 0) + calories;
       });
 
       // Create chart data
       const chartData = dates.map(date => {
         const checkin = checkins.find(c => c.checkin_date === date);
         let calories = 0;
-        if (checkin && activityByCheckin[checkin.id]) {
-          calories = activityByCheckin[checkin.id].calories_burned || 0;
+        if (checkin && activityCaloriesByCheckin[checkin.id]) {
+          calories = activityCaloriesByCheckin[checkin.id];
         }
         return {
           date: date.slice(5), // MM-DD format
