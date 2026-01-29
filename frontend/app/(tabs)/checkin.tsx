@@ -133,8 +133,8 @@ export default function CheckInScreen() {
       setOfflineCheckin(updated);
       Alert.alert('Success', 'Meals saved successfully!');
     } else if (user?.id) {
-      const total = meals.breakfast + meals.lunch + meals.dinner + meals.snacks;
-      await updateCalories(user.id, total);
+      // Use saveMeals which writes to both daily_checkins and meals table
+      await saveMeals(user.id, meals);
       Alert.alert('Success', 'Meals saved successfully!');
     }
   };
