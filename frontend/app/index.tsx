@@ -194,8 +194,8 @@ export default function Index() {
                 <ActivityIndicator color="#fff" />
               ) : (
                 <>
-                  <Ionicons name="rocket" size={20} color="#fff" />
-                  <Text style={styles.primaryButtonText}>Try Demo (Supabase)</Text>
+                  <Ionicons name="log-in" size={20} color="#fff" />
+                  <Text style={styles.primaryButtonText}>Login</Text>
                 </>
               )}
             </TouchableOpacity>
