@@ -12,15 +12,28 @@ import * as db from '../src/lib/db';
 
 export default function Index() {
   const { theme } = useThemeStore();
-  const { user, demoLogin, isLoading, error, debugLog, checkSession } = useAuthStore();
+  const { user, login, signUp, demoLogin, isLoading, error, debugLog, checkSession, setError } = useAuthStore();
   const { loadUserData } = useDataStore();
   const [configStatus, setConfigStatus] = useState<'checking' | 'configured' | 'missing'>('checking');
   const [showLogin, setShowLogin] = useState(false);
   const [isEnteringDemo, setIsEnteringDemo] = useState(false);
   const [isCheckingOnboarding, setIsCheckingOnboarding] = useState(false);
+  
+  // Auth form state
+  const [authMode, setAuthMode] = useState<'login' | 'signup'>('login');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
 
   // Check if offline demo mode is enabled
   const isOffline = isOfflineDemoEnabled();
+
+  // Email validation
+  const isValidEmail = (email: string): boolean => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  };
 
   // Check if user needs onboarding (profile or goal missing)
   const checkOnboardingStatus = async (userId: string): Promise<boolean> => {
