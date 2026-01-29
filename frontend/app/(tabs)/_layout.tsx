@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
 import { Tabs } from 'expo-router';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -11,40 +11,21 @@ export default function TabsLayout() {
   const { theme } = useThemeStore();
   const { user } = useAuthStore();
   const isOffline = isOfflineDemoEnabled();
-  const [authStatus, setAuthStatus] = useState<'checking' | 'authenticated' | 'unauthenticated'>('checking');
 
-  // Check auth once on mount
+  // Auth guard: redirect to login if not authenticated
   useEffect(() => {
-    const checkAuth = () => {
-      if (isOffline) {
-        setAuthStatus('authenticated');
-        return;
-      }
-      
-      const currentUser = useAuthStore.getState().user;
-      if (currentUser) {
-        setAuthStatus('authenticated');
-      } else {
-        setAuthStatus('unauthenticated');
-        console.log('[TabsLayout] No user, redirecting to login');
-        // Delay redirect to prevent render conflicts
-        setTimeout(() => {
-          router.replace('/');
-        }, 100);
-      }
-    };
-    
-    checkAuth();
-  }, []); // Empty deps - only run once on mount
+    if (!isOffline && !user) {
+      console.log('[TabsLayout] No user and not offline, redirecting to login');
+      router.replace('/');
+    }
+  }, [user, isOffline]);
 
-  // Show loading while checking
-  if (authStatus === 'checking' || authStatus === 'unauthenticated') {
+  // Show loading/redirect screen if not authenticated
+  if (!isOffline && !user) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: theme.background }}>
         <ActivityIndicator size="large" color={theme.primary} />
-        <Text style={{ marginTop: 16, color: theme.textSecondary }}>
-          {authStatus === 'unauthenticated' ? 'Redirecting to login...' : 'Loading...'}
-        </Text>
+        <Text style={{ marginTop: 16, color: theme.textSecondary }}>Redirecting to login...</Text>
       </View>
     );
   }
