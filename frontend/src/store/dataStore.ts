@@ -36,6 +36,7 @@ export const useDataStore = create<DataState>((set, get) => ({
   profile: null,
   goal: null,
   todayCheckin: null,
+  todayMeals: [],
   recentActivities: [],
   chartData: [],
   isLoading: false,
@@ -58,8 +59,22 @@ export const useDataStore = create<DataState>((set, get) => ({
     try {
       const checkin = await db.getOrCreateTodayCheckin(userId);
       set({ todayCheckin: checkin });
+      
+      // Also load meals for today's checkin
+      if (checkin) {
+        await get().loadTodayMeals(checkin.id);
+      }
     } catch (err) {
       console.log('Error loading today checkin:', err);
+    }
+  },
+
+  loadTodayMeals: async (checkinId: string) => {
+    try {
+      const meals = await db.getMealsForCheckin(checkinId);
+      set({ todayMeals: meals });
+    } catch (err) {
+      console.log('Error loading today meals:', err);
     }
   },
 
