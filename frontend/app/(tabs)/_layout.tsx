@@ -84,5 +84,9 @@ export default function TabsLayout() {
         }}
       />
     </Tabs>
-  );
+    );
+  }
+
+  // Fallback: show nothing while waiting for auth check
+  return null;
 }
