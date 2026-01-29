@@ -101,3 +101,113 @@
 #====================================================================================================
 # Testing Data - Main Agent and testing sub agent both should log testing data below this section
 #====================================================================================================
+
+user_problem_statement: |
+  FitTrack app improvements:
+  1. Unify the online/offline meal data model - Online mode should write to meals table
+  2. Fix daily_checkins upsert conflict handling - Add onConflict clause
+  3. Ensure each user has only one active goal - Deactivate old goals before inserting new
+  4. Fix workout chart aggregation - Sum multiple activities per day
+  5. Clarify/remove unused backend - Document that backend/ is not used
+
+backend:
+  - task: "Meals table write in online mode"
+    implemented: true
+    working: "NA"
+    file: "frontend/src/lib/db.ts"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Added upsertMeals function that deletes existing meals and inserts new ones for each meal type"
+
+  - task: "daily_checkins upsert conflict handling"
+    implemented: true
+    working: "NA"
+    file: "frontend/src/lib/db.ts"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Added onConflict: 'user_id,checkin_date' to upsertDailyCheckin"
+
+  - task: "Single active goal per user"
+    implemented: true
+    working: "NA"
+    file: "frontend/src/lib/db.ts"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Modified upsertUserGoal to deactivate all existing goals before inserting new one"
+
+  - task: "Workout chart aggregation fix"
+    implemented: true
+    working: "NA"
+    file: "frontend/src/store/dataStore.ts"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Changed loadChartData to aggregate calories by summing all activities per checkin_id"
+
+frontend:
+  - task: "Pre-fill meals from online data"
+    implemented: true
+    working: "NA"
+    file: "frontend/app/(tabs)/checkin.tsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Added todayMeals to dataStore and useEffect to pre-fill meal inputs from fetched meals"
+
+  - task: "Save meals using saveMeals function"
+    implemented: true
+    working: "NA"
+    file: "frontend/app/(tabs)/checkin.tsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Updated handleSaveMeals to use new saveMeals store method instead of updateCalories"
+
+metadata:
+  created_by: "main_agent"
+  version: "1.0"
+  test_sequence: 1
+  run_ui: false
+
+test_plan:
+  current_focus:
+    - "Meals table write in online mode"
+    - "daily_checkins upsert conflict handling"
+    - "Single active goal per user"
+    - "Workout chart aggregation fix"
+  stuck_tasks: []
+  test_all: true
+  test_priority: "high_first"
+
+agent_communication:
+  - agent: "main"
+    message: |
+      Implemented all 5 tasks requested by user:
+      1. Unified meal data model - saveMeals now writes to both daily_checkins (total) and meals table
+      2. Fixed daily_checkins upsert - Added onConflict: 'user_id,checkin_date'
+      3. Single active goal - upsertUserGoal now deactivates old goals before inserting
+      4. Fixed chart aggregation - Now sums calories for multiple activities per day
+      5. Updated README to document that backend/ is not used
+      
+      Please test the Supabase database operations. Note: Testing requires valid Supabase credentials in .env file.
