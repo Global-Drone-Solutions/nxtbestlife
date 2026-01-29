@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Tabs } from 'expo-router';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -11,39 +11,45 @@ export default function TabsLayout() {
   const { theme } = useThemeStore();
   const { user } = useAuthStore();
   const isOffline = isOfflineDemoEnabled();
-  const isRedirecting = useRef(false);
+  const [authStatus, setAuthStatus] = useState<'checking' | 'authenticated' | 'unauthenticated'>('checking');
 
-  // Auth guard: redirect to login if not authenticated
-  // Only check on mount - don't add user to deps to avoid infinite loops
+  // Check auth once on mount
   useEffect(() => {
-    const currentUser = useAuthStore.getState().user;
-    if (!isOffline && !currentUser && !isRedirecting.current) {
-      isRedirecting.current = true;
-      console.log('[TabsLayout] No user and not offline, redirecting to login');
-      router.replace('/');
-    }
-  }, [isOffline]);
+    const checkAuth = () => {
+      if (isOffline) {
+        setAuthStatus('authenticated');
+        return;
+      }
+      
+      const currentUser = useAuthStore.getState().user;
+      if (currentUser) {
+        setAuthStatus('authenticated');
+      } else {
+        setAuthStatus('unauthenticated');
+        console.log('[TabsLayout] No user, redirecting to login');
+        // Delay redirect to prevent render conflicts
+        setTimeout(() => {
+          router.replace('/');
+        }, 100);
+      }
+    };
+    
+    checkAuth();
+  }, []); // Empty deps - only run once on mount
 
-  // Watch for logout - when user becomes null while on this screen
-  useEffect(() => {
-    if (!isOffline && user === null && !isRedirecting.current) {
-      isRedirecting.current = true;
-      console.log('[TabsLayout] User logged out, redirecting to login');
-      router.replace('/');
-    }
-  }, [user, isOffline]);
-
-  // If not authenticated and not offline, show loading while redirecting
-  if (!isOffline && !user) {
+  // Show loading while checking
+  if (authStatus === 'checking' || authStatus === 'unauthenticated') {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: theme.background }}>
         <ActivityIndicator size="large" color={theme.primary} />
-        <Text style={{ marginTop: 16, color: theme.textSecondary }}>Redirecting to login...</Text>
+        <Text style={{ marginTop: 16, color: theme.textSecondary }}>
+          {authStatus === 'unauthenticated' ? 'Redirecting to login...' : 'Loading...'}
+        </Text>
       </View>
     );
   }
 
-  // If offline mode or user exists, render tabs
+  // Authenticated - render tabs
   return (
     <Tabs
       screenOptions={{
