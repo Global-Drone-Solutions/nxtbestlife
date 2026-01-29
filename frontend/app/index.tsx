@@ -81,16 +81,17 @@ export default function Index() {
   useEffect(() => {
     if (configStatus === 'configured' && !isOffline) {
       checkSession().then(() => {
-        if (useAuthStore.getState().user) {
-          router.replace('/(tabs)');
+        const currentUser = useAuthStore.getState().user;
+        if (currentUser) {
+          handlePostLoginNavigation(currentUser.id);
         }
       });
     }
   }, [configStatus, isOffline]);
 
   useEffect(() => {
-    if (user) {
-      router.replace('/(tabs)');
+    if (user && !isCheckingOnboarding) {
+      handlePostLoginNavigation(user.id);
     }
   }, [user]);
 
