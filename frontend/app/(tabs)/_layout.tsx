@@ -11,14 +11,24 @@ export default function TabsLayout() {
   const { theme } = useThemeStore();
   const { user } = useAuthStore();
   const isOffline = isOfflineDemoEnabled();
-  const hasRedirected = useRef(false);
+  const isRedirecting = useRef(false);
 
   // Auth guard: redirect to login if not authenticated
-  // This runs on mount AND when user changes (e.g., after logout)
+  // Only check on mount - don't add user to deps to avoid infinite loops
   useEffect(() => {
-    if (!isOffline && !user && !hasRedirected.current) {
-      hasRedirected.current = true;
+    const currentUser = useAuthStore.getState().user;
+    if (!isOffline && !currentUser && !isRedirecting.current) {
+      isRedirecting.current = true;
       console.log('[TabsLayout] No user and not offline, redirecting to login');
+      router.replace('/');
+    }
+  }, [isOffline]);
+
+  // Watch for logout - when user becomes null while on this screen
+  useEffect(() => {
+    if (!isOffline && user === null && !isRedirecting.current) {
+      isRedirecting.current = true;
+      console.log('[TabsLayout] User logged out, redirecting to login');
       router.replace('/');
     }
   }, [user, isOffline]);
@@ -28,7 +38,7 @@ export default function TabsLayout() {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: theme.background }}>
         <ActivityIndicator size="large" color={theme.primary} />
-        <Text style={{ marginTop: 16, color: theme.textSecondary }}>Redirecting...</Text>
+        <Text style={{ marginTop: 16, color: theme.textSecondary }}>Redirecting to login...</Text>
       </View>
     );
   }
