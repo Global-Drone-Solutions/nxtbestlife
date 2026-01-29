@@ -6,6 +6,7 @@ export interface UserProfile {
   current_weight_kg: number;
   age: number | null;
   activity_level: string;
+  gender: 'male' | 'female';
   created_at: string;
   updated_at: string;
 }
@@ -17,6 +18,7 @@ export interface UserGoal {
   daily_calorie_target: number;
   daily_water_goal_ml: number;
   sleep_goal_hours: number;
+  days_to_goal?: number;
   is_active: boolean;
   created_at: string;
   updated_at: string;
