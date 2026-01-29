@@ -220,6 +220,51 @@ export const insertMeal = async (meal: Omit<Meal, 'id' | 'created_at'>): Promise
   return data;
 };
 
+// Upsert meals for a checkin - deletes existing meals and inserts new ones
+export const upsertMeals = async (
+  userId: string,
+  checkinId: string,
+  meals: { breakfast: number; lunch: number; dinner: number; snacks: number }
+): Promise<Meal[]> => {
+  const supabase = getSupabase();
+  if (!supabase) return [];
+
+  // Delete existing meals for this checkin
+  await supabase
+    .from('meals')
+    .delete()
+    .eq('checkin_id', checkinId);
+
+  // Prepare new meal records (only insert if calories > 0)
+  const mealRecords: Omit<Meal, 'id' | 'created_at'>[] = [];
+  
+  if (meals.breakfast > 0) {
+    mealRecords.push({ user_id: userId, checkin_id: checkinId, meal_type: 'breakfast', estimated_calories: meals.breakfast });
+  }
+  if (meals.lunch > 0) {
+    mealRecords.push({ user_id: userId, checkin_id: checkinId, meal_type: 'lunch', estimated_calories: meals.lunch });
+  }
+  if (meals.dinner > 0) {
+    mealRecords.push({ user_id: userId, checkin_id: checkinId, meal_type: 'dinner', estimated_calories: meals.dinner });
+  }
+  if (meals.snacks > 0) {
+    mealRecords.push({ user_id: userId, checkin_id: checkinId, meal_type: 'snack', estimated_calories: meals.snacks });
+  }
+
+  if (mealRecords.length === 0) return [];
+
+  const { data, error } = await supabase
+    .from('meals')
+    .insert(mealRecords)
+    .select();
+
+  if (error) {
+    console.log('Error upserting meals:', error.message);
+    return [];
+  }
+  return data || [];
+};
+
 // Get daily checkins for multiple dates (for chart data)
 export const getCheckinsForDates = async (userId: string, dates: string[]): Promise<DailyCheckin[]> => {
   const supabase = getSupabase();
