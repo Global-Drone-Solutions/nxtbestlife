@@ -623,4 +623,66 @@ const styles = StyleSheet.create({
     fontFamily: 'monospace',
     lineHeight: 16,
   },
+  keyboardView: {
+    flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+    paddingVertical: 32,
+  },
+  authTabs: {
+    flexDirection: 'row',
+    borderRadius: 12,
+    padding: 4,
+    marginBottom: 20,
+    width: '100%',
+  },
+  authTab: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  authTabText: {
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  inputContainer: {
+    width: '100%',
+    marginBottom: 16,
+  },
+  inputLabel: {
+    fontSize: 14,
+    fontWeight: '500',
+    marginBottom: 8,
+  },
+  inputWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+  },
+  inputIcon: {
+    marginRight: 10,
+  },
+  input: {
+    flex: 1,
+    height: 48,
+    fontSize: 16,
+  },
+  eyeButton: {
+    padding: 4,
+  },
+  demoLink: {
+    paddingVertical: 8,
+    marginBottom: 16,
+  },
+  demoLinkText: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
 });
