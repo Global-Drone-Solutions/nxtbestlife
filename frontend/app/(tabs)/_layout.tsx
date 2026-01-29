@@ -1,11 +1,34 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Tabs } from 'expo-router';
+import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useThemeStore } from '../../src/store/themeStore';
-import { View, Platform } from 'react-native';
+import { useAuthStore } from '../../src/store/authStore';
+import { isOfflineDemoEnabled } from '../../src/lib/offlineStore';
+import { View, Platform, ActivityIndicator, Text } from 'react-native';
 
 export default function TabsLayout() {
   const { theme } = useThemeStore();
+  const { user } = useAuthStore();
+  const isOffline = isOfflineDemoEnabled();
+
+  // Auth guard: redirect to login if not authenticated
+  useEffect(() => {
+    if (!isOffline && !user) {
+      console.log('[TabsLayout] No user and not offline, redirecting to login');
+      router.replace('/');
+    }
+  }, [user, isOffline]);
+
+  // Show loading while checking auth (only in online mode)
+  if (!isOffline && !user) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: theme.background }}>
+        <ActivityIndicator size="large" color={theme.primary} />
+        <Text style={{ marginTop: 16, color: theme.textSecondary }}>Redirecting to login...</Text>
+      </View>
+    );
+  }
 
   return (
     <Tabs
