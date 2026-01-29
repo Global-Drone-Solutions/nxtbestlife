@@ -116,7 +116,10 @@ export const upsertDailyCheckin = async (checkin: Partial<DailyCheckin> & { user
 
   const { data, error } = await supabase
     .from('daily_checkins')
-    .upsert({ ...checkin, updated_at: new Date().toISOString() })
+    .upsert(
+      { ...checkin, updated_at: new Date().toISOString() },
+      { onConflict: 'user_id,checkin_date' }
+    )
     .select()
     .single();
 
