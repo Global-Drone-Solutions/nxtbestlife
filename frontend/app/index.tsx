@@ -252,14 +252,15 @@ export default function Index() {
     );
   }
 
-  // Checking config
-  if (configStatus === 'checking' || isCheckingOnboarding) {
+  // Checking config or auth
+  if (configStatus === 'checking' || isCheckingOnboarding || (!isOffline && !isAuthChecked)) {
     return (
       <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
         <View style={styles.content}>
           <ActivityIndicator size="large" color={theme.primary} />
           <Text style={[styles.subtitle, { color: theme.textSecondary, marginTop: 16 }]}>
-            {isCheckingOnboarding ? 'Checking your profile...' : 'Checking configuration...'}
+            {isCheckingOnboarding ? 'Checking your profile...' : 
+             !isAuthChecked ? 'Checking session...' : 'Checking configuration...'}
           </Text>
         </View>
       </SafeAreaView>
