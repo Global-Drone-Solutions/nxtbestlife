@@ -204,45 +204,77 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   signOut: async () => {
+    console.log('[Auth] Signing out...');
     try {
+      // First sign out from Supabase Auth
       const supabase = getSupabase();
       if (supabase) {
         await supabase.auth.signOut();
+        console.log('[Auth] Supabase signOut completed');
       }
+      
+      // Clear AsyncStorage
       await AsyncStorage.removeItem(AUTH_STORAGE_KEY);
+      console.log('[Auth] Cleared AsyncStorage');
+      
+      // Reset Supabase instance to prevent stale auth state
+      resetSupabaseInstance();
+      console.log('[Auth] Reset Supabase instance');
     } catch (err) {
-      console.log('Error signing out:', err);
+      console.log('[Auth] Error signing out:', err);
     }
-    set({ user: null });
+    
+    // Clear user state
+    set({ user: null, error: null, debugLog: null });
+    console.log('[Auth] User state cleared');
   },
 
   checkSession: async () => {
+    console.log('[Auth] Checking session...');
     try {
-      // First check AsyncStorage for persisted session
-      const storedUser = await AsyncStorage.getItem(AUTH_STORAGE_KEY);
-      if (storedUser) {
-        const user = JSON.parse(storedUser) as AppUser;
-        console.log('[Auth] Restored session for user:', user.email);
-        set({ user });
+      const supabase = getSupabase();
+      if (!supabase) {
+        console.log('[Auth] No Supabase client, clearing any cached user');
+        await AsyncStorage.removeItem(AUTH_STORAGE_KEY);
+        set({ user: null });
         return;
       }
 
-      // Then check Supabase session
-      const supabase = getSupabase();
-      if (supabase) {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session?.user) {
-          const appUser: AppUser = {
-            id: session.user.id,
-            email: session.user.email || '',
-            created_at: session.user.created_at,
-          };
-          await AsyncStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(appUser));
-          set({ user: appUser });
-        }
+      // IMPORTANT: Trust Supabase session first, not AsyncStorage
+      const { data: { session }, error } = await supabase.auth.getSession();
+      
+      if (error) {
+        console.log('[Auth] Error getting session:', error.message);
+        await AsyncStorage.removeItem(AUTH_STORAGE_KEY);
+        set({ user: null });
+        return;
       }
+
+      if (!session || !session.user) {
+        // No valid Supabase session - clear everything
+        console.log('[Auth] No valid Supabase session, clearing cached user');
+        await AsyncStorage.removeItem(AUTH_STORAGE_KEY);
+        set({ user: null });
+        return;
+      }
+
+      // Valid Supabase session exists - use it
+      console.log('[Auth] Valid session found for:', session.user.email);
+      const appUser: AppUser = {
+        id: session.user.id,
+        email: session.user.email || '',
+        created_at: session.user.created_at,
+      };
+      
+      // Update AsyncStorage with current session
+      await AsyncStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(appUser));
+      set({ user: appUser });
+      
     } catch (err) {
-      console.log('Error checking session:', err);
+      console.log('[Auth] Error checking session:', err);
+      // On error, clear cached user to be safe
+      await AsyncStorage.removeItem(AUTH_STORAGE_KEY);
+      set({ user: null });
     }
   },
 }));
