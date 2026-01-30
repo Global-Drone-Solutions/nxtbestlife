@@ -90,9 +90,6 @@ export default function DashboardScreen() {
     // Skip if no user
     if (!user?.id) return;
     
-    // Skip if already loading
-    if (isDataLoading) return;
-    
     // Check if we need to load user data (only once per session)
     const needsUserData = !userDataLoadedRef.current;
     
@@ -103,7 +100,11 @@ export default function DashboardScreen() {
     if (!needsUserData && !needsCheckinData) return;
     
     const loadData = async () => {
+      // Double-check we're not already loading (using ref for immediate check)
+      if (isDataLoadingRef.current) return;
+      isDataLoadingRef.current = true;
       setIsDataLoading(true);
+      
       try {
         // Load user profile and goal only once
         if (needsUserData) {
@@ -118,12 +119,14 @@ export default function DashboardScreen() {
           lastLoadedDateRef.current = normalizedSelectedDate;
         }
       } finally {
+        isDataLoadingRef.current = false;
         setIsDataLoading(false);
       }
     };
     
     loadData();
-  }, [user?.id, isOffline, normalizedSelectedDate, isDataLoading, loadOfflineData, loadUserData, loadChartData, loadCheckinByDate]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id, isOffline, normalizedSelectedDate]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
