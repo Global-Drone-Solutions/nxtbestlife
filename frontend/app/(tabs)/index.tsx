@@ -1,8 +1,8 @@
 import React, { useEffect, useCallback, useState, useMemo, useRef } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, AppState, AppStateStatus } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { LineChart } from 'react-native-gifted-charts';
 import { useThemeStore } from '../../src/store/themeStore';
 import { useAuthStore } from '../../src/store/authStore';
@@ -11,6 +11,7 @@ import { GlassCard } from '../../src/components/GlassCard';
 import { ProgressBar } from '../../src/components/ProgressBar';
 import { QuickAddButtons } from '../../src/components/QuickAddButtons';
 import { getTodayDate, formatDateDisplay } from '../../src/lib/db';
+import { getSupabase } from '../../src/lib/supabaseClient';
 import { 
   isOfflineDemoEnabled, 
   getOfflineGoal, 
