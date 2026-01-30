@@ -468,22 +468,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     borderRadius: 12,
     borderWidth: 1,
-    marginBottom: 16,
+    marginBottom: 8,
   },
-  dateBarOffline: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    borderRadius: 12,
-    borderWidth: 1,
-    marginBottom: 16,
-    gap: 6,
-  },
-  offlineDateText: {
-    fontSize: 13,
+  offlineHint: {
+    fontSize: 12,
     fontWeight: '500',
+  },
+  offlineDateHint: {
+    fontSize: 12,
+    textAlign: 'center',
+    marginBottom: 12,
   },
   dateNavButton: {
     width: 36,
