@@ -12,12 +12,13 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useThemeStore } from '../../src/store/themeStore';
 import { useAuthStore } from '../../src/store/authStore';
 import { useDataStore } from '../../src/store/dataStore';
 import { GlassCard } from '../../src/components/GlassCard';
 import { QuickAddButtons } from '../../src/components/QuickAddButtons';
+import { getTodayDate, formatDateDisplay } from '../../src/lib/db';
 import {
   isOfflineDemoEnabled,
   getOfflineTodayCheckin,
@@ -35,11 +36,15 @@ const ACTIVITY_TYPES = ['walk', 'run', 'gym', 'swim', 'cycle', 'yoga', 'other'];
 export default function CheckInScreen() {
   const { theme } = useThemeStore();
   const { user } = useAuthStore();
+  const params = useLocalSearchParams<{ date?: string }>();
+  
   const { 
-    todayCheckin, 
-    todayMeals,
+    selectedDate,
+    setSelectedDate,
+    selectedCheckin,
+    selectedMeals,
     goal,
-    loadTodayCheckin,
+    loadCheckinByDate,
     updateWater, 
     updateSleep, 
     saveMeals,
@@ -47,6 +52,11 @@ export default function CheckInScreen() {
   } = useDataStore();
 
   const isOffline = isOfflineDemoEnabled();
+  const today = getTodayDate();
+
+  // Use the date from params, or fall back to selectedDate from store, or today
+  const effectiveDate = params.date || selectedDate || today;
+  const isToday = effectiveDate === today;
 
   // Offline state
   const [offlineCheckin, setOfflineCheckin] = useState<OfflineCheckin | null>(null);
@@ -82,34 +92,47 @@ export default function CheckInScreen() {
     setSleepHours(checkin.sleep_hours?.toString() || '');
   };
 
+  // On mount or date change, load data for the effective date
   useEffect(() => {
     if (isOffline) {
       loadOfflineData();
     } else if (user?.id) {
-      loadTodayCheckin(user.id);
+      // Update store's selected date if coming from navigation params
+      if (params.date && params.date !== selectedDate) {
+        setSelectedDate(params.date);
+      }
+      loadCheckinByDate(user.id, effectiveDate);
     }
-  }, [user?.id, isOffline]);
+  }, [user?.id, isOffline, effectiveDate]);
 
-  // Pre-fill meal inputs from online data (todayMeals)
+  // Pre-fill meal inputs from online data (selectedMeals)
   useEffect(() => {
-    if (!isOffline && todayMeals.length > 0) {
-      const breakfastMeal = todayMeals.find(m => m.meal_type === 'breakfast');
-      const lunchMeal = todayMeals.find(m => m.meal_type === 'lunch');
-      const dinnerMeal = todayMeals.find(m => m.meal_type === 'dinner');
-      const snackMeal = todayMeals.find(m => m.meal_type === 'snack');
+    if (!isOffline && selectedMeals.length > 0) {
+      const breakfastMeal = selectedMeals.find(m => m.meal_type === 'breakfast');
+      const lunchMeal = selectedMeals.find(m => m.meal_type === 'lunch');
+      const dinnerMeal = selectedMeals.find(m => m.meal_type === 'dinner');
+      const snackMeal = selectedMeals.find(m => m.meal_type === 'snack');
       
       setBreakfast(breakfastMeal?.estimated_calories?.toString() || '');
       setLunch(lunchMeal?.estimated_calories?.toString() || '');
       setDinner(dinnerMeal?.estimated_calories?.toString() || '');
       setSnacks(snackMeal?.estimated_calories?.toString() || '');
+    } else if (!isOffline && selectedMeals.length === 0) {
+      // Clear meals if no data for this date
+      setBreakfast('');
+      setLunch('');
+      setDinner('');
+      setSnacks('');
     }
-  }, [todayMeals, isOffline]);
+  }, [selectedMeals, isOffline]);
 
   useEffect(() => {
-    if (!isOffline && todayCheckin) {
-      setSleepHours(todayCheckin.sleep_hours?.toString() || '');
+    if (!isOffline && selectedCheckin) {
+      setSleepHours(selectedCheckin.sleep_hours?.toString() || '');
+    } else if (!isOffline && !selectedCheckin) {
+      setSleepHours('');
     }
-  }, [todayCheckin, isOffline]);
+  }, [selectedCheckin, isOffline]);
 
   const handleAddWater = async (amount: number) => {
     if (isOffline) {
@@ -133,7 +156,6 @@ export default function CheckInScreen() {
       setOfflineCheckin(updated);
       Alert.alert('Success', 'Meals saved successfully!');
     } else if (user?.id) {
-      // Use saveMeals which writes to both daily_checkins and meals table
       await saveMeals(user.id, meals);
       Alert.alert('Success', 'Meals saved successfully!');
     }
@@ -181,7 +203,7 @@ export default function CheckInScreen() {
     }
   };
 
-  const currentCheckin = isOffline ? offlineCheckin : todayCheckin;
+  const currentCheckin = isOffline ? offlineCheckin : selectedCheckin;
   const currentGoal = isOffline ? offlineGoal : goal;
   const waterIntake = currentCheckin?.water_intake_ml || 0;
   const waterGoal = currentGoal?.daily_water_goal_ml || 2000;
@@ -195,9 +217,12 @@ export default function CheckInScreen() {
         {/* Header */}
         <View style={styles.header}>
           <Text style={[styles.headerTitle, { color: theme.text }]}>Daily Check-in</Text>
-          <Text style={[styles.headerDate, { color: theme.textSecondary }]}>
-            {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}
-          </Text>
+          <View style={styles.dateChip}>
+            <Ionicons name="calendar-outline" size={14} color={theme.primary} />
+            <Text style={[styles.headerDate, { color: theme.primary }]}>
+              {formatDateDisplay(effectiveDate)}
+            </Text>
+          </View>
         </View>
 
         <ScrollView 
@@ -212,6 +237,16 @@ export default function CheckInScreen() {
               <Ionicons name="cloud-offline" size={14} color={theme.warning} />
               <Text style={[styles.offlineBannerText, { color: theme.warning }]}>
                 Offline Demo - changes saved locally
+              </Text>
+            </View>
+          )}
+
+          {/* Past date indicator */}
+          {!isToday && !isOffline && (
+            <View style={[styles.pastDateBanner, { backgroundColor: theme.primary + '15', borderColor: theme.primary }]}>
+              <Ionicons name="time-outline" size={14} color={theme.primary} />
+              <Text style={[styles.pastDateText, { color: theme.primary }]}>
+                Editing data for {formatDateDisplay(effectiveDate)}
               </Text>
             </View>
           )}
@@ -298,7 +333,9 @@ export default function CheckInScreen() {
             </View>
             
             <View style={styles.sleepRow}>
-              <Text style={[styles.sleepLabel, { color: theme.textSecondary }]}>Hours slept last night:</Text>
+              <Text style={[styles.sleepLabel, { color: theme.textSecondary }]}>
+                {isToday ? 'Hours slept last night:' : 'Hours slept:'}
+              </Text>
               <TextInput
                 style={[styles.sleepInput, { backgroundColor: theme.background, color: theme.text, borderColor: theme.border }]}
                 placeholder="8"
@@ -410,9 +447,15 @@ const styles = StyleSheet.create({
     fontSize: 28,
     fontWeight: '700',
   },
+  dateChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 6,
+  },
   headerDate: {
     fontSize: 14,
-    marginTop: 4,
+    fontWeight: '600',
   },
   scrollView: {
     flex: 1,
@@ -434,6 +477,21 @@ const styles = StyleSheet.create({
   },
   offlineBannerText: {
     fontSize: 12,
+    fontWeight: '500',
+  },
+  pastDateBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    marginBottom: 12,
+    gap: 6,
+  },
+  pastDateText: {
+    fontSize: 13,
     fontWeight: '500',
   },
   card: {
