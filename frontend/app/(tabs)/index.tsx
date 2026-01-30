@@ -48,8 +48,10 @@ export default function DashboardScreen() {
   const isOffline = useMemo(() => isOfflineDemoEnabled(), []);
   
   const today = getTodayDate();
-  const isToday = selectedDate === today;
-  const canGoNext = selectedDate < today;
+  // Normalize selectedDate for comparison (strip time component if present)
+  const normalizedSelectedDate = selectedDate.split('T')[0];
+  const isToday = normalizedSelectedDate === today;
+  const canGoNext = normalizedSelectedDate < today;
 
   // Offline state
   const [offlineGoal, setOfflineGoal] = useState<OfflineGoal | null>(null);
