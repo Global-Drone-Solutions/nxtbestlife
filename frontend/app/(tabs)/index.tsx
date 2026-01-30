@@ -88,7 +88,8 @@ export default function DashboardScreen() {
       loadCheckinByDate(user.id, selectedDate);
       loadChartData(user.id);
     }
-  }, [user?.id, isOffline, loadOfflineData, loadUserData, loadCheckinByDate, loadChartData, selectedDate]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id, isOffline]);
 
   // Load checkin when date changes (not on initial mount)
   const initialLoad = useRef(true);
@@ -100,6 +101,7 @@ export default function DashboardScreen() {
     if (!isOffline && user?.id) {
       loadCheckinByDate(user.id, selectedDate);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedDate]);
 
   const onRefresh = useCallback(async () => {
