@@ -59,13 +59,16 @@ export const useDataStore = create<DataState>((set, get) => ({
   isLoading: false,
 
   // Date navigation
+  // Normalize date to YYYY-MM-DD format to ensure reliable string comparisons
   setSelectedDate: (date: string) => {
-    set({ selectedDate: date });
+    const normalized = date.split('T')[0]; // Strip time component if present
+    set({ selectedDate: normalized });
   },
 
   goToPreviousDay: () => {
     const { selectedDate } = get();
-    const currentDate = new Date(selectedDate + 'T00:00:00');
+    const normalized = selectedDate.split('T')[0];
+    const currentDate = new Date(normalized + 'T00:00:00');
     currentDate.setDate(currentDate.getDate() - 1);
     const newDate = currentDate.toISOString().split('T')[0];
     set({ selectedDate: newDate });
@@ -73,12 +76,13 @@ export const useDataStore = create<DataState>((set, get) => ({
 
   goToNextDay: () => {
     const { selectedDate } = get();
+    const normalized = selectedDate.split('T')[0];
     const today = db.getTodayDate();
     
     // Don't go beyond today
-    if (selectedDate >= today) return;
+    if (normalized >= today) return;
     
-    const currentDate = new Date(selectedDate + 'T00:00:00');
+    const currentDate = new Date(normalized + 'T00:00:00');
     currentDate.setDate(currentDate.getDate() + 1);
     const newDate = currentDate.toISOString().split('T')[0];
     set({ selectedDate: newDate });
