@@ -63,6 +63,7 @@ export default function DashboardScreen() {
   
   // Track loading state to prevent multiple simultaneous calls
   const [isDataLoading, setIsDataLoading] = useState(false);
+  const isDataLoadingRef = useRef(false);
   // Track the last loaded date to avoid redundant loads
   const lastLoadedDateRef = useRef<string | null>(null);
   // Track if user data (profile/goal) has been loaded
