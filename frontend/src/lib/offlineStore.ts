@@ -1,8 +1,22 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+// Offline mode state (in-memory, set when user enters offline demo)
+let offlineModeActive = false;
+
 // Check if offline demo mode is enabled
 export const isOfflineDemoEnabled = (): boolean => {
-  return process.env.EXPO_PUBLIC_OFFLINE_DEMO === 'true';
+  // Check both environment variable and active mode flag
+  return process.env.EXPO_PUBLIC_OFFLINE_DEMO === 'true' || offlineModeActive;
+};
+
+// Set offline mode active (called when user enters offline demo)
+export const setOfflineModeActive = (active: boolean): void => {
+  offlineModeActive = active;
+};
+
+// Get current offline mode state
+export const getOfflineModeActive = (): boolean => {
+  return offlineModeActive;
 };
 
 // Storage keys
