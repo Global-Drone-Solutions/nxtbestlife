@@ -1,4 +1,4 @@
-import React, { useEffect, useCallback, useState } from 'react';
+import React, { useEffect, useCallback, useState, useMemo, useRef } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -43,7 +43,10 @@ export default function DashboardScreen() {
   } = useDataStore();
 
   const [refreshing, setRefreshing] = useState(false);
-  const isOffline = isOfflineDemoEnabled();
+  
+  // Memoize isOffline to prevent recalculation on every render
+  const isOffline = useMemo(() => isOfflineDemoEnabled(), []);
+  
   const today = getTodayDate();
   const isToday = selectedDate === today;
   const canGoNext = selectedDate < today;
@@ -52,8 +55,11 @@ export default function DashboardScreen() {
   const [offlineGoal, setOfflineGoal] = useState<OfflineGoal | null>(null);
   const [offlineCheckin, setOfflineCheckin] = useState<OfflineCheckin | null>(null);
   const [offlineChartData, setOfflineChartData] = useState<OfflineChartData[]>([]);
+  
+  // Track if initial data has been loaded
+  const dataLoadedRef = useRef(false);
 
-  const loadOfflineData = async () => {
+  const loadOfflineData = useCallback(async () => {
     const [goalData, checkinData, chartDataArr] = await Promise.all([
       getOfflineGoal(),
       getOfflineTodayCheckin(),
@@ -62,10 +68,13 @@ export default function DashboardScreen() {
     setOfflineGoal(goalData);
     setOfflineCheckin(checkinData);
     setOfflineChartData(chartDataArr);
-  };
+  }, []);
 
-  // Initial load - only on mount or user change
+  // Initial load - only once on mount
   useEffect(() => {
+    if (dataLoadedRef.current) return;
+    dataLoadedRef.current = true;
+    
     if (isOffline) {
       loadOfflineData();
     } else if (user?.id) {
@@ -74,10 +83,10 @@ export default function DashboardScreen() {
       loadCheckinByDate(user.id, selectedDate);
       loadChartData(user.id);
     }
-  }, [user?.id, isOffline]);
+  }, [user?.id, isOffline, loadOfflineData, loadUserData, loadCheckinByDate, loadChartData, selectedDate]);
 
   // Load checkin when date changes (not on initial mount)
-  const initialLoad = React.useRef(true);
+  const initialLoad = useRef(true);
   useEffect(() => {
     if (initialLoad.current) {
       initialLoad.current = false;
