@@ -40,9 +40,7 @@ interface DataState {
   addActivity: (userId: string, activity: { type: string; duration: number; calories: number }) => Promise<void>;
   refreshData: (userId: string) => Promise<void>;
   
-  // Legacy compatibility
-  todayCheckin: DailyCheckin | null;
-  todayMeals: Meal[];
+  // Legacy compatibility - these now just reference selectedCheckin/selectedMeals
   loadTodayCheckin: (userId: string) => Promise<void>;
   loadTodayMeals: (checkinId: string) => Promise<void>;
 }
@@ -107,7 +105,10 @@ export const useDataStore = create<DataState>((set, get) => ({
       
       // Also load meals for this checkin
       if (checkin) {
-        await get().loadMealsForCheckin(checkin.id);
+        const meals = await db.getMealsForCheckin(checkin.id);
+        set({ selectedMeals: meals });
+      } else {
+        set({ selectedMeals: [] });
       }
     } catch (err) {
       console.log('Error loading checkin for date:', err);
@@ -123,15 +124,7 @@ export const useDataStore = create<DataState>((set, get) => ({
     }
   },
 
-  // Legacy compatibility - maps to selectedCheckin/selectedMeals
-  get todayCheckin() {
-    return get().selectedCheckin;
-  },
-  
-  get todayMeals() {
-    return get().selectedMeals;
-  },
-
+  // Legacy compatibility - load today's data
   loadTodayCheckin: async (userId: string) => {
     const today = db.getTodayDate();
     set({ selectedDate: today });
@@ -237,3 +230,7 @@ export const useDataStore = create<DataState>((set, get) => ({
     ]);
   },
 }));
+
+// Selector hooks for legacy compatibility
+export const useTodayCheckin = () => useDataStore(state => state.selectedCheckin);
+export const useTodayMeals = () => useDataStore(state => state.selectedMeals);
