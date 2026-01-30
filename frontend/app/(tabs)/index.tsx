@@ -81,8 +81,6 @@ export default function DashboardScreen() {
 
   // Combined effect: handles initial load and date changes
   useEffect(() => {
-    console.log('[Dashboard Effect]', { isOffline, userId: user?.id, normalizedSelectedDate, loadingRef: loadingRef.current, lastLoadedDate: lastLoadedDateRef.current });
-    
     // Skip if offline mode
     if (isOffline) {
       loadOfflineData();
@@ -93,10 +91,7 @@ export default function DashboardScreen() {
     if (!user?.id) return;
     
     // Prevent concurrent loads
-    if (loadingRef.current) {
-      console.log('[Dashboard Effect] Skipping - already loading');
-      return;
-    }
+    if (loadingRef.current) return;
     
     // Check if we need to load user data (only once per session)
     const needsUserData = !userDataLoadedRef.current;
@@ -104,17 +99,11 @@ export default function DashboardScreen() {
     // Check if we need to load checkin for current date
     const needsCheckinData = lastLoadedDateRef.current !== normalizedSelectedDate;
     
-    console.log('[Dashboard Effect] Needs', { needsUserData, needsCheckinData });
-    
     // Skip if nothing needs to be loaded
-    if (!needsUserData && !needsCheckinData) {
-      console.log('[Dashboard Effect] Skipping - nothing to load');
-      return;
-    }
+    if (!needsUserData && !needsCheckinData) return;
     
     // Mark as loading
     loadingRef.current = true;
-    console.log('[Dashboard Effect] Starting load');
     
     // Execute async operations
     (async () => {
@@ -131,7 +120,6 @@ export default function DashboardScreen() {
           await loadCheckinByDate(user.id, normalizedSelectedDate);
           lastLoadedDateRef.current = normalizedSelectedDate;
         }
-        console.log('[Dashboard Effect] Load complete');
       } finally {
         loadingRef.current = false;
       }
