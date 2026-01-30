@@ -10,8 +10,11 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { WebView } from 'react-native-webview';
 import { useThemeStore } from '../../src/store/themeStore';
+import { useAuthStore } from '../../src/store/authStore';
+import { useDataStore } from '../../src/store/dataStore';
 
-const ELEVENLABS_HTML = `
+// Function to generate HTML with dynamic variables
+const getElevenLabsHTML = (dynamicVariables: Record<string, any>) => `
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -45,7 +48,7 @@ const ELEVENLABS_HTML = `
 <body>
   <elevenlabs-convai
     agent-id="agent_6601kg3cnhs1et88cer2tcsgq753"
-    dynamic-variables='{"name": "Mahmood"}'
+    dynamic-variables='${JSON.stringify(dynamicVariables)}'
   ></elevenlabs-convai>
   <script src="https://unpkg.com/@elevenlabs/convai-widget-embed" async type="text/javascript"></script>
 </body>
@@ -54,10 +57,27 @@ const ELEVENLABS_HTML = `
 
 export default function AICompanionScreen() {
   const { theme, isDark } = useThemeStore();
+  const { user } = useAuthStore();
+  const { profile, goal } = useDataStore();
+  
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
   const webViewRef = useRef<WebView>(null);
   const loadTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Build dynamic variables to pass to the bot
+  const dynamicVariables = {
+    name: "Mahmood",
+    user_id: user?.id || "anonymous",
+    user_email: user?.email || "",
+    // You can add more user data here
+    height: profile?.height_cm || null,
+    weight: profile?.current_weight_kg || null,
+    target_weight: goal?.target_weight_kg || null,
+    daily_calorie_target: goal?.daily_calorie_target || null,
+  };
+
+  const htmlContent = getElevenLabsHTML(dynamicVariables);
 
   const handleLoadStart = () => {
     setIsLoading(true);
