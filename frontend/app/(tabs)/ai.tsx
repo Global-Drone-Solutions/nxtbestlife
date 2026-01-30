@@ -179,7 +179,7 @@ export default function AICompanionScreen() {
           // For web, use iframe
           <View style={styles.webViewWrapper}>
             <iframe
-              srcDoc={ELEVENLABS_HTML}
+              srcDoc={htmlContent}
               style={{
                 width: '100%',
                 height: '100%',
@@ -194,7 +194,7 @@ export default function AICompanionScreen() {
           // For native, use WebView
           <WebView
             ref={webViewRef}
-            source={{ html: ELEVENLABS_HTML }}
+            source={{ html: htmlContent }}
             style={[styles.webView, { backgroundColor: theme.background }]}
             onLoadStart={handleLoadStart}
             onLoadEnd={handleLoadEnd}
