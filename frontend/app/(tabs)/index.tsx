@@ -141,7 +141,8 @@ export default function DashboardScreen() {
       lastLoadedDateRef.current = normalizedSelectedDate;
     }
     setRefreshing(false);
-  }, [user?.id, isOffline, normalizedSelectedDate, loadOfflineData, refreshData]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id, isOffline, normalizedSelectedDate]);
 
   const handleAddWater = async (amount: number) => {
     if (isOffline) {
