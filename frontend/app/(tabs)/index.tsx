@@ -10,6 +10,7 @@ import { useDataStore } from '../../src/store/dataStore';
 import { GlassCard } from '../../src/components/GlassCard';
 import { ProgressBar } from '../../src/components/ProgressBar';
 import { QuickAddButtons } from '../../src/components/QuickAddButtons';
+import { getTodayDate, formatDateDisplay } from '../../src/lib/db';
 import { 
   isOfflineDemoEnabled, 
   getOfflineGoal, 
@@ -27,11 +28,15 @@ export default function DashboardScreen() {
   const { 
     profile, 
     goal, 
-    todayCheckin, 
+    selectedDate,
+    selectedCheckin,
     chartData, 
     isLoading,
+    setSelectedDate,
+    goToPreviousDay,
+    goToNextDay,
     loadUserData,
-    loadTodayCheckin,
+    loadCheckinByDate,
     loadChartData,
     updateWater,
     refreshData,
@@ -39,6 +44,9 @@ export default function DashboardScreen() {
 
   const [refreshing, setRefreshing] = useState(false);
   const isOffline = isOfflineDemoEnabled();
+  const today = getTodayDate();
+  const isToday = selectedDate === today;
+  const canGoNext = selectedDate < today;
 
   // Offline state
   const [offlineGoal, setOfflineGoal] = useState<OfflineGoal | null>(null);
@@ -64,6 +72,13 @@ export default function DashboardScreen() {
     }
   }, [user?.id, isOffline]);
 
+  // Load checkin when date changes
+  useEffect(() => {
+    if (!isOffline && user?.id) {
+      loadCheckinByDate(user.id, selectedDate);
+    }
+  }, [selectedDate, user?.id, isOffline]);
+
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     if (isOffline) {
@@ -83,30 +98,36 @@ export default function DashboardScreen() {
     }
   };
 
+  const handlePreviousDay = () => {
+    if (!isOffline) {
+      goToPreviousDay();
+    }
+  };
+
+  const handleNextDay = () => {
+    if (!isOffline && canGoNext) {
+      goToNextDay();
+    }
+  };
+
   // Use offline or online data
   const currentGoal = isOffline ? offlineGoal : goal;
-  const currentCheckin = isOffline ? offlineCheckin : todayCheckin;
+  const currentCheckin = isOffline ? offlineCheckin : selectedCheckin;
 
   // Calculate calories
   const targetCalories = currentGoal?.daily_calorie_target || 2000;
-  const consumedCalories = isOffline 
-    ? (offlineCheckin?.total_calories_consumed || 0)
-    : (todayCheckin?.total_calories_consumed || 0);
+  const consumedCalories = currentCheckin?.total_calories_consumed || 0;
   const remainingCalories = targetCalories - consumedCalories;
   const caloriesProgress = consumedCalories / targetCalories;
 
   // Water
   const waterGoal = currentGoal?.daily_water_goal_ml || 2000;
-  const waterIntake = isOffline 
-    ? (offlineCheckin?.water_intake_ml || 0)
-    : (todayCheckin?.water_intake_ml || 0);
+  const waterIntake = currentCheckin?.water_intake_ml || 0;
   const waterProgress = waterIntake / waterGoal;
 
   // Sleep
   const sleepGoal = currentGoal?.sleep_goal_hours || 8;
-  const sleepHours = isOffline 
-    ? (offlineCheckin?.sleep_hours || 0)
-    : (todayCheckin?.sleep_hours || 0);
+  const sleepHours = currentCheckin?.sleep_hours || 0;
   const sleepProgress = sleepHours / sleepGoal;
 
   // Chart data
@@ -161,7 +182,7 @@ export default function DashboardScreen() {
               <Ionicons name="flame" size={24} color={theme.warning} />
               <Text style={[styles.cardTitle, { color: theme.text }]}>Calories</Text>
             </View>
-            <TouchableOpacity onPress={() => router.push('/(tabs)/checkin')}>
+            <TouchableOpacity onPress={() => router.push({ pathname: '/(tabs)/checkin', params: { date: selectedDate } })}>
               <Text style={[styles.addLink, { color: theme.primary }]}>+ Add Meal</Text>
             </TouchableOpacity>
           </View>
@@ -192,13 +213,46 @@ export default function DashboardScreen() {
           />
         </GlassCard>
 
-        {/* Today Summary Chip */}
-        <View style={styles.summaryChip}>
-          <Ionicons name="calendar" size={16} color={theme.primary} />
-          <Text style={[styles.summaryText, { color: theme.textSecondary }]}>
-            Today's Summary
-          </Text>
-        </View>
+        {/* Date Navigation Bar */}
+        {isOffline ? (
+          <View style={[styles.dateBarOffline, { backgroundColor: theme.warning + '10', borderColor: theme.warning }]}>
+            <Ionicons name="information-circle" size={16} color={theme.warning} />
+            <Text style={[styles.offlineDateText, { color: theme.warning }]}>
+              Offline mode: today only
+            </Text>
+          </View>
+        ) : (
+          <View style={[styles.dateBar, { backgroundColor: theme.card, borderColor: theme.border }]}>
+            <TouchableOpacity 
+              style={[styles.dateNavButton, { backgroundColor: theme.background }]}
+              onPress={handlePreviousDay}
+            >
+              <Ionicons name="chevron-back" size={20} color={theme.primary} />
+            </TouchableOpacity>
+            
+            <View style={styles.dateLabelContainer}>
+              <Ionicons name="calendar-outline" size={16} color={theme.primary} />
+              <Text style={[styles.dateLabel, { color: theme.text }]}>
+                {formatDateDisplay(selectedDate)}
+              </Text>
+            </View>
+            
+            <TouchableOpacity 
+              style={[
+                styles.dateNavButton, 
+                { backgroundColor: canGoNext ? theme.background : theme.border },
+              ]}
+              onPress={handleNextDay}
+              disabled={!canGoNext}
+            >
+              <Ionicons 
+                name="chevron-forward" 
+                size={20} 
+                color={canGoNext ? theme.primary : theme.textMuted} 
+              />
+            </TouchableOpacity>
+          </View>
+        )}
 
         {/* Water Card */}
         <GlassCard style={styles.card}>
@@ -223,7 +277,7 @@ export default function DashboardScreen() {
               <Ionicons name="moon" size={24} color={theme.accent} />
               <Text style={[styles.cardTitle, { color: theme.text }]}>Sleep</Text>
             </View>
-            <TouchableOpacity onPress={() => router.push('/(tabs)/checkin')}>
+            <TouchableOpacity onPress={() => router.push({ pathname: '/(tabs)/checkin', params: { date: selectedDate } })}>
               <Ionicons name="pencil" size={18} color={theme.textMuted} />
             </TouchableOpacity>
           </View>
@@ -280,7 +334,7 @@ export default function DashboardScreen() {
               </Text>
               <TouchableOpacity 
                 style={[styles.addButton, { backgroundColor: theme.secondary }]}
-                onPress={() => router.push('/(tabs)/checkin')}
+                onPress={() => router.push({ pathname: '/(tabs)/checkin', params: { date: selectedDate } })}
               >
                 <Text style={styles.addButtonText}>Log Activity</Text>
               </TouchableOpacity>
@@ -379,16 +433,47 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: '300',
   },
-  summaryChip: {
+  // Date Navigation Bar
+  dateBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    marginBottom: 16,
+  },
+  dateBarOffline: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    marginBottom: 16,
+    gap: 6,
+  },
+  offlineDateText: {
+    fontSize: 13,
+    fontWeight: '500',
+  },
+  dateNavButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  dateLabelContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    paddingVertical: 8,
-    paddingHorizontal: 4,
   },
-  summaryText: {
-    fontSize: 13,
-    fontWeight: '500',
+  dateLabel: {
+    fontSize: 15,
+    fontWeight: '600',
   },
   sleepRow: {
     flexDirection: 'row',
