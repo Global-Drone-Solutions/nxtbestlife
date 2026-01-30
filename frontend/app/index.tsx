@@ -203,10 +203,13 @@ export default function Index() {
   const handleEnterOfflineDemo = async () => {
     setIsEnteringDemo(true);
     try {
+      // Enable offline mode flag
+      setOfflineModeActive(true);
       await initOfflineDemo();
       router.replace('/(tabs)');
     } catch (err) {
       console.error('Error entering offline demo:', err);
+      setOfflineModeActive(false); // Reset on error
     }
     setIsEnteringDemo(false);
   };
