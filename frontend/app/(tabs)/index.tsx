@@ -74,7 +74,6 @@ export default function DashboardScreen() {
       getOfflineTodayCheckin(),
       getOfflineChartData(),
     ]);
-    ]);
     setOfflineGoal(goalData);
     setOfflineCheckin(checkinData);
     setOfflineChartData(chartDataArr);
