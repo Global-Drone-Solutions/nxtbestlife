@@ -52,6 +52,9 @@ export default function DashboardScreen() {
   const normalizedSelectedDate = selectedDate.split('T')[0];
   const isToday = normalizedSelectedDate === today;
   const canGoNext = normalizedSelectedDate < today;
+  
+  // Debug logging
+  console.log('[DateBar Debug]', { selectedDate, normalizedSelectedDate, today, isToday, canGoNext, isOffline });
 
   // Offline state
   const [offlineGoal, setOfflineGoal] = useState<OfflineGoal | null>(null);
