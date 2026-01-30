@@ -77,7 +77,110 @@ export default function DashboardScreen() {
     setOfflineChartData(chartDataArr);
   }, []);
 
-  // Combined effect: handles initial load and date changes
+  // Force refresh function - resets all caches and reloads
+  const forceRefresh = useCallback(async () => {
+    if (isOffline || !user?.id) return;
+    
+    // Reset refs to force reload
+    userDataLoadedRef.current = false;
+    lastLoadedDateRef.current = null;
+    loadingRef.current = false;
+    
+    // Reload all data
+    await Promise.all([
+      loadUserData(user.id),
+      loadCheckinByDate(user.id, normalizedSelectedDate),
+      loadChartData(user.id),
+    ]);
+    
+    // Update refs
+    userDataLoadedRef.current = true;
+    lastLoadedDateRef.current = normalizedSelectedDate;
+  }, [user?.id, isOffline, normalizedSelectedDate, loadUserData, loadCheckinByDate, loadChartData]);
+
+  // Refresh data when screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      if (!isOffline && user?.id) {
+        // Refresh data every time the screen is focused
+        forceRefresh();
+      }
+    }, [isOffline, user?.id, forceRefresh])
+  );
+
+  // Listen to app state changes (background -> foreground)
+  useEffect(() => {
+    const handleAppStateChange = (nextAppState: AppStateStatus) => {
+      if (nextAppState === 'active' && !isOffline && user?.id) {
+        // App came to foreground, refresh data
+        forceRefresh();
+      }
+    };
+
+    const subscription = AppState.addEventListener('change', handleAppStateChange);
+    return () => subscription?.remove();
+  }, [isOffline, user?.id, forceRefresh]);
+
+  // Set up Supabase real-time subscription for checkins
+  useEffect(() => {
+    if (isOffline || !user?.id) return;
+
+    const supabase = getSupabase();
+    if (!supabase) return;
+
+    // Subscribe to changes on daily_checkins table for this user
+    const channel = supabase
+      .channel('dashboard-checkins')
+      .on(
+        'postgres_changes',
+        {
+          event: '*', // Listen to INSERT, UPDATE, DELETE
+          schema: 'public',
+          table: 'daily_checkins',
+          filter: `user_id=eq.${user.id}`,
+        },
+        (payload) => {
+          console.log('[Realtime] Checkin changed:', payload.eventType);
+          // Reload the checkin data for current date
+          loadCheckinByDate(user.id, normalizedSelectedDate);
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'meals',
+          filter: `user_id=eq.${user.id}`,
+        },
+        (payload) => {
+          console.log('[Realtime] Meals changed:', payload.eventType);
+          // Reload checkin to update calories
+          loadCheckinByDate(user.id, normalizedSelectedDate);
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'activities',
+          filter: `user_id=eq.${user.id}`,
+        },
+        (payload) => {
+          console.log('[Realtime] Activities changed:', payload.eventType);
+          // Reload chart data
+          loadChartData(user.id);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user?.id, isOffline, normalizedSelectedDate, loadCheckinByDate, loadChartData]);
+
+  // Initial load effect
   useEffect(() => {
     // Skip if offline mode
     if (isOffline) {
@@ -130,16 +233,10 @@ export default function DashboardScreen() {
     if (isOffline) {
       await loadOfflineData();
     } else if (user?.id) {
-      // Reset the refs to force reload
-      userDataLoadedRef.current = false;
-      lastLoadedDateRef.current = null;
-      await refreshData(user.id);
-      userDataLoadedRef.current = true;
-      lastLoadedDateRef.current = normalizedSelectedDate;
+      await forceRefresh();
     }
     setRefreshing(false);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id, isOffline, normalizedSelectedDate]);
+  }, [user?.id, isOffline, forceRefresh, loadOfflineData]);
 
   const handleAddWater = async (amount: number) => {
     if (isOffline) {
