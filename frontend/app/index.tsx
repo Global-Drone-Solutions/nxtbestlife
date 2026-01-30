@@ -7,7 +7,7 @@ import { useThemeStore } from '../src/store/themeStore';
 import { useAuthStore } from '../src/store/authStore';
 import { useDataStore } from '../src/store/dataStore';
 import { getSupabaseConfig, initSupabase, resetSupabaseInstance } from '../src/lib/supabaseClient';
-import { isOfflineDemoEnabled, initOfflineDemo } from '../src/lib/offlineStore';
+import { isOfflineDemoEnabled, initOfflineDemo, setOfflineModeActive } from '../src/lib/offlineStore';
 import * as db from '../src/lib/db';
 
 export default function Index() {
