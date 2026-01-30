@@ -64,20 +64,29 @@ export default function DashboardScreen() {
     setOfflineChartData(chartDataArr);
   };
 
+  // Initial load - only on mount or user change
   useEffect(() => {
     if (isOffline) {
       loadOfflineData();
     } else if (user?.id) {
-      refreshData(user.id);
+      // Load all data for initial date
+      loadUserData(user.id);
+      loadCheckinByDate(user.id, selectedDate);
+      loadChartData(user.id);
     }
   }, [user?.id, isOffline]);
 
-  // Load checkin when date changes
+  // Load checkin when date changes (not on initial mount)
+  const initialLoad = React.useRef(true);
   useEffect(() => {
+    if (initialLoad.current) {
+      initialLoad.current = false;
+      return;
+    }
     if (!isOffline && user?.id) {
       loadCheckinByDate(user.id, selectedDate);
     }
-  }, [selectedDate, user?.id, isOffline]);
+  }, [selectedDate]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
