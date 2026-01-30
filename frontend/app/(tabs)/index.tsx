@@ -234,44 +234,50 @@ export default function DashboardScreen() {
         </GlassCard>
 
         {/* Date Navigation Bar */}
-        {isOffline ? (
-          <View style={[styles.dateBarOffline, { backgroundColor: theme.warning + '10', borderColor: theme.warning }]}>
-            <Ionicons name="information-circle" size={16} color={theme.warning} />
-            <Text style={[styles.offlineDateText, { color: theme.warning }]}>
-              Offline mode: today only
+        <View style={[styles.dateBar, { backgroundColor: theme.card, borderColor: theme.border }]}>
+          <TouchableOpacity 
+            style={[styles.dateNavButton, { backgroundColor: theme.background }]}
+            onPress={handlePreviousDay}
+            disabled={isOffline}
+          >
+            <Ionicons 
+              name="chevron-back" 
+              size={20} 
+              color={isOffline ? theme.textMuted : theme.primary} 
+            />
+          </TouchableOpacity>
+          
+          <View style={styles.dateLabelContainer}>
+            <Ionicons name="calendar-outline" size={16} color={theme.primary} />
+            <Text style={[styles.dateLabel, { color: theme.text }]}>
+              {formatDateDisplay(normalizedSelectedDate)}
             </Text>
+            {isOffline && (
+              <Text style={[styles.offlineHint, { color: theme.warning }]}> (offline)</Text>
+            )}
           </View>
-        ) : (
-          <View style={[styles.dateBar, { backgroundColor: theme.card, borderColor: theme.border }]}>
-            <TouchableOpacity 
-              style={[styles.dateNavButton, { backgroundColor: theme.background }]}
-              onPress={handlePreviousDay}
-            >
-              <Ionicons name="chevron-back" size={20} color={theme.primary} />
-            </TouchableOpacity>
-            
-            <View style={styles.dateLabelContainer}>
-              <Ionicons name="calendar-outline" size={16} color={theme.primary} />
-              <Text style={[styles.dateLabel, { color: theme.text }]}>
-                {formatDateDisplay(selectedDate)}
-              </Text>
-            </View>
-            
-            <TouchableOpacity 
-              style={[
-                styles.dateNavButton, 
-                { backgroundColor: canGoNext ? theme.background : theme.border },
-              ]}
-              onPress={handleNextDay}
-              disabled={!canGoNext}
-            >
-              <Ionicons 
-                name="chevron-forward" 
-                size={20} 
-                color={canGoNext ? theme.primary : theme.textMuted} 
-              />
-            </TouchableOpacity>
-          </View>
+          
+          <TouchableOpacity 
+            style={[
+              styles.dateNavButton, 
+              { backgroundColor: (canGoNext && !isOffline) ? theme.background : theme.border },
+            ]}
+            onPress={handleNextDay}
+            disabled={!canGoNext || isOffline}
+          >
+            <Ionicons 
+              name="chevron-forward" 
+              size={20} 
+              color={(canGoNext && !isOffline) ? theme.primary : theme.textMuted} 
+            />
+          </TouchableOpacity>
+        </View>
+
+        {/* Offline hint */}
+        {isOffline && (
+          <Text style={[styles.offlineDateHint, { color: theme.warning }]}>
+            Offline mode: only today's data available
+          </Text>
         )}
 
         {/* Water Card */}
