@@ -61,8 +61,12 @@ export default function DashboardScreen() {
   const [offlineCheckin, setOfflineCheckin] = useState<OfflineCheckin | null>(null);
   const [offlineChartData, setOfflineChartData] = useState<OfflineChartData[]>([]);
   
-  // Track if initial data has been loaded
-  const dataLoadedRef = useRef(false);
+  // Track loading state to prevent multiple simultaneous calls
+  const [isDataLoading, setIsDataLoading] = useState(false);
+  // Track the last loaded date to avoid redundant loads
+  const lastLoadedDateRef = useRef<string | null>(null);
+  // Track if user data (profile/goal) has been loaded
+  const userDataLoadedRef = useRef(false);
 
   const loadOfflineData = useCallback(async () => {
     const [goalData, checkinData, chartDataArr] = await Promise.all([
@@ -75,44 +79,66 @@ export default function DashboardScreen() {
     setOfflineChartData(chartDataArr);
   }, []);
 
-  // Initial load - only once on mount
+  // Combined effect: handles initial load and date changes
   useEffect(() => {
-    if (dataLoadedRef.current) return;
-    dataLoadedRef.current = true;
-    
+    // Skip if offline mode
     if (isOffline) {
       loadOfflineData();
-    } else if (user?.id) {
-      // Load all data for initial date
-      loadUserData(user.id);
-      loadCheckinByDate(user.id, selectedDate);
-      loadChartData(user.id);
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id, isOffline]);
-
-  // Load checkin when date changes (not on initial mount)
-  const initialLoad = useRef(true);
-  useEffect(() => {
-    if (initialLoad.current) {
-      initialLoad.current = false;
       return;
     }
-    if (!isOffline && user?.id) {
-      loadCheckinByDate(user.id, selectedDate);
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedDate]);
+    
+    // Skip if no user
+    if (!user?.id) return;
+    
+    // Skip if already loading
+    if (isDataLoading) return;
+    
+    // Check if we need to load user data (only once per session)
+    const needsUserData = !userDataLoadedRef.current;
+    
+    // Check if we need to load checkin for current date
+    const needsCheckinData = lastLoadedDateRef.current !== normalizedSelectedDate;
+    
+    // Skip if nothing needs to be loaded
+    if (!needsUserData && !needsCheckinData) return;
+    
+    const loadData = async () => {
+      setIsDataLoading(true);
+      try {
+        // Load user profile and goal only once
+        if (needsUserData) {
+          await loadUserData(user.id);
+          await loadChartData(user.id);
+          userDataLoadedRef.current = true;
+        }
+        
+        // Load checkin for current date
+        if (needsCheckinData) {
+          await loadCheckinByDate(user.id, normalizedSelectedDate);
+          lastLoadedDateRef.current = normalizedSelectedDate;
+        }
+      } finally {
+        setIsDataLoading(false);
+      }
+    };
+    
+    loadData();
+  }, [user?.id, isOffline, normalizedSelectedDate, isDataLoading, loadOfflineData, loadUserData, loadChartData, loadCheckinByDate]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     if (isOffline) {
       await loadOfflineData();
     } else if (user?.id) {
+      // Reset the refs to force reload
+      userDataLoadedRef.current = false;
+      lastLoadedDateRef.current = null;
       await refreshData(user.id);
+      userDataLoadedRef.current = true;
+      lastLoadedDateRef.current = normalizedSelectedDate;
     }
     setRefreshing(false);
-  }, [user?.id, isOffline]);
+  }, [user?.id, isOffline, normalizedSelectedDate, loadOfflineData, refreshData]);
 
   const handleAddWater = async (amount: number) => {
     if (isOffline) {
