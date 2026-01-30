@@ -1,91 +1,102 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { 
   View, 
   Text, 
   StyleSheet, 
-  ScrollView, 
-  TextInput, 
-  TouchableOpacity,
-  KeyboardAvoidingView,
+  ActivityIndicator,
   Platform,
-  FlatList,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { WebView } from 'react-native-webview';
 import { useThemeStore } from '../../src/store/themeStore';
-import { GlassCard } from '../../src/components/GlassCard';
 
-interface Message {
-  id: string;
-  text: string;
-  isUser: boolean;
-  timestamp: Date;
-}
+const ELEVENLABS_HTML = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>AI Companion</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: transparent;
+    }
+    body {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+    }
+    elevenlabs-convai {
+      width: 100%;
+      height: 100%;
+    }
+  </style>
+</head>
+<body>
+  <elevenlabs-convai
+    agent-id="agent_6601kg3cnhs1et88cer2tcsgq753"
+    dynamic-variables='{"name": "Mahmood"}'
+  ></elevenlabs-convai>
+  <script src="https://unpkg.com/@elevenlabs/convai-widget-embed" async type="text/javascript"></script>
+</body>
+</html>
+`;
 
-const CANNED_RESPONSE = "AI coach coming soon. Please use Dashboard and Check-in to track progress.";
+export default function AICompanionScreen() {
+  const { theme, isDark } = useThemeStore();
+  const [isLoading, setIsLoading] = useState(true);
+  const [hasError, setHasError] = useState(false);
+  const webViewRef = useRef<WebView>(null);
+  const loadTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-export default function AIPlaceholderScreen() {
-  const { theme } = useThemeStore();
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: '1',
-      text: 'Hello! I\'m your AI fitness coach. How can I help you today?',
-      isUser: false,
-      timestamp: new Date(),
-    },
-  ]);
-  const [inputText, setInputText] = useState('');
-
-  const handleSend = () => {
-    if (!inputText.trim()) return;
-
-    const userMessage: Message = {
-      id: Date.now().toString(),
-      text: inputText.trim(),
-      isUser: true,
-      timestamp: new Date(),
-    };
-
-    setMessages(prev => [...prev, userMessage]);
-    setInputText('');
-
-    // Simulate AI response after a brief delay
-    setTimeout(() => {
-      const aiMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        text: CANNED_RESPONSE,
-        isUser: false,
-        timestamp: new Date(),
-      };
-      setMessages(prev => [...prev, aiMessage]);
-    }, 500);
+  const handleLoadStart = () => {
+    setIsLoading(true);
+    setHasError(false);
+    
+    // Set a timeout to prevent infinite loading
+    if (loadTimeoutRef.current) {
+      clearTimeout(loadTimeoutRef.current);
+    }
+    loadTimeoutRef.current = setTimeout(() => {
+      setIsLoading(false);
+    }, 10000); // 10 second max loading time
   };
 
-  const renderMessage = ({ item }: { item: Message }) => (
-    <View style={[
-      styles.messageContainer,
-      item.isUser ? styles.userMessageContainer : styles.aiMessageContainer,
-    ]}>
-      {!item.isUser && (
-        <View style={[styles.avatarContainer, { backgroundColor: theme.primary + '20' }]}>
-          <Ionicons name="fitness" size={20} color={theme.primary} />
-        </View>
-      )}
-      <View style={[
-        styles.messageBubble,
-        item.isUser 
-          ? [styles.userBubble, { backgroundColor: theme.primary }]
-          : [styles.aiBubble, { backgroundColor: theme.surface, borderColor: theme.border }],
-      ]}>
-        <Text style={[
-          styles.messageText,
-          { color: item.isUser ? '#fff' : theme.text }
-        ]}>
-          {item.text}
-        </Text>
-      </View>
-    </View>
-  );
+  const handleLoadEnd = () => {
+    setIsLoading(false);
+    if (loadTimeoutRef.current) {
+      clearTimeout(loadTimeoutRef.current);
+    }
+  };
+
+  const handleError = () => {
+    setIsLoading(false);
+    setHasError(true);
+    if (loadTimeoutRef.current) {
+      clearTimeout(loadTimeoutRef.current);
+    }
+  };
+
+  const handleRetry = () => {
+    setHasError(false);
+    setIsLoading(true);
+    webViewRef.current?.reload();
+  };
+
+  // Inject CSS to match app theme
+  const injectedCSS = `
+    document.body.style.backgroundColor = '${theme.background}';
+  `;
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['top']}>
@@ -95,65 +106,93 @@ export default function AIPlaceholderScreen() {
           <View style={[styles.headerIcon, { backgroundColor: theme.primary + '20' }]}>
             <Ionicons name="chatbubbles" size={24} color={theme.primary} />
           </View>
-          <View>
-            <Text style={[styles.headerTitle, { color: theme.text }]}>AI Coach</Text>
-            <Text style={[styles.headerSubtitle, { color: theme.textMuted }]}>Coming Soon</Text>
+          <View style={styles.headerTextContainer}>
+            <Text style={[styles.headerTitle, { color: theme.text }]}>AI Companion</Text>
+            <View style={styles.statusRow}>
+              <View style={[styles.statusDot, { backgroundColor: hasError ? theme.error : '#4CAF50' }]} />
+              <Text style={[styles.headerSubtitle, { color: theme.textMuted }]}>
+                {hasError ? 'Offline' : 'Powered by ElevenLabs'}
+              </Text>
+            </View>
           </View>
         </View>
       </View>
 
-      {/* Info Banner */}
-      <GlassCard style={styles.infoBanner}>
-        <Ionicons name="information-circle" size={20} color={theme.primary} />
-        <Text style={[styles.infoText, { color: theme.textSecondary }]}>
-          AI features are under development. Chat UI is ready for future integration.
-        </Text>
-      </GlassCard>
+      {/* WebView Container */}
+      <View style={styles.webViewContainer}>
+        {/* Loading Overlay */}
+        {isLoading && (
+          <View style={[styles.loadingContainer, { backgroundColor: theme.background }]}>
+            <ActivityIndicator size="large" color={theme.primary} />
+            <Text style={[styles.loadingText, { color: theme.textSecondary }]}>
+              Loading AI Companion...
+            </Text>
+            <Text style={[styles.loadingHint, { color: theme.textMuted }]}>
+              This may take a few seconds
+            </Text>
+          </View>
+        )}
 
-      {/* Messages */}
-      <KeyboardAvoidingView 
-        style={styles.chatContainer}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={100}
-      >
-        <FlatList
-          data={messages}
-          renderItem={renderMessage}
-          keyExtractor={item => item.id}
-          contentContainerStyle={styles.messagesList}
-          showsVerticalScrollIndicator={false}
-        />
+        {/* Error State */}
+        {hasError && !isLoading && (
+          <View style={[styles.errorContainer, { backgroundColor: theme.background }]}>
+            <View style={[styles.errorIcon, { backgroundColor: theme.error + '20' }]}>
+              <Ionicons name="cloud-offline" size={48} color={theme.error} />
+            </View>
+            <Text style={[styles.errorTitle, { color: theme.text }]}>
+              Connection Failed
+            </Text>
+            <Text style={[styles.errorText, { color: theme.textSecondary }]}>
+              Unable to load AI companion. Please check your internet connection.
+            </Text>
+            <View 
+              style={[styles.retryButton, { backgroundColor: theme.primary }]}
+              onTouchEnd={handleRetry}
+            >
+              <Text style={styles.retryButtonText}>Try Again</Text>
+            </View>
+          </View>
+        )}
 
-        {/* Input */}
-        <View style={[styles.inputContainer, { backgroundColor: theme.surface, borderTopColor: theme.border }]}>
-          <TextInput
-            style={[
-              styles.textInput,
-              { 
-                backgroundColor: theme.background, 
-                color: theme.text,
-                borderColor: theme.border,
-              }
-            ]}
-            placeholder="Type a message..."
-            placeholderTextColor={theme.textMuted}
-            value={inputText}
-            onChangeText={setInputText}
-            multiline
-            maxLength={500}
+        {/* WebView */}
+        {Platform.OS === 'web' ? (
+          // For web, use iframe
+          <View style={styles.webViewWrapper}>
+            <iframe
+              srcDoc={ELEVENLABS_HTML}
+              style={{
+                width: '100%',
+                height: '100%',
+                border: 'none',
+                backgroundColor: theme.background,
+              }}
+              onLoad={() => handleLoadEnd()}
+              onError={() => handleError()}
+            />
+          </View>
+        ) : (
+          // For native, use WebView
+          <WebView
+            ref={webViewRef}
+            source={{ html: ELEVENLABS_HTML }}
+            style={[styles.webView, { backgroundColor: theme.background }]}
+            onLoadStart={handleLoadStart}
+            onLoadEnd={handleLoadEnd}
+            onError={handleError}
+            injectedJavaScript={injectedCSS}
+            javaScriptEnabled={true}
+            domStorageEnabled={true}
+            mediaPlaybackRequiresUserAction={false}
+            allowsInlineMediaPlayback={true}
+            startInLoadingState={false}
+            originWhitelist={['*']}
+            mixedContentMode="always"
+            allowsFullscreenVideo={true}
+            allowFileAccess={true}
+            scalesPageToFit={true}
           />
-          <TouchableOpacity 
-            style={[
-              styles.sendButton,
-              { backgroundColor: inputText.trim() ? theme.primary : theme.textMuted }
-            ]}
-            onPress={handleSend}
-            disabled={!inputText.trim()}
-          >
-            <Ionicons name="send" size={20} color="#fff" />
-          </TouchableOpacity>
-        </View>
-      </KeyboardAvoidingView>
+        )}
+      </View>
     </SafeAreaView>
   );
 }
@@ -173,98 +212,94 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   headerIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     justifyContent: 'center',
     alignItems: 'center',
   },
+  headerTextContainer: {
+    flex: 1,
+  },
   headerTitle: {
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: '700',
+  },
+  statusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 2,
+  },
+  statusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
   },
   headerSubtitle: {
     fontSize: 13,
   },
-  infoBanner: {
-    margin: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    paddingVertical: 12,
-  },
-  infoText: {
+  webViewContainer: {
     flex: 1,
+    position: 'relative',
+  },
+  webViewWrapper: {
+    flex: 1,
+    width: '100%',
+    height: '100%',
+  },
+  webView: {
+    flex: 1,
+  },
+  loadingContainer: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 10,
+  },
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  loadingHint: {
+    marginTop: 8,
     fontSize: 13,
-    lineHeight: 18,
   },
-  chatContainer: {
-    flex: 1,
-  },
-  messagesList: {
-    paddingHorizontal: 16,
-    paddingBottom: 16,
-  },
-  messageContainer: {
-    flexDirection: 'row',
-    marginVertical: 6,
-    alignItems: 'flex-end',
-  },
-  userMessageContainer: {
-    justifyContent: 'flex-end',
-  },
-  aiMessageContainer: {
-    justifyContent: 'flex-start',
-  },
-  avatarContainer: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+  errorContainer: {
+    ...StyleSheet.absoluteFillObject,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 8,
+    padding: 32,
+    zIndex: 10,
   },
-  messageBubble: {
-    maxWidth: '75%',
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 18,
+  errorIcon: {
+    width: 96,
+    height: 96,
+    borderRadius: 48,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 24,
   },
-  userBubble: {
-    borderBottomRightRadius: 4,
-    marginLeft: 'auto',
+  errorTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    marginBottom: 8,
   },
-  aiBubble: {
-    borderBottomLeftRadius: 4,
-    borderWidth: 1,
-  },
-  messageText: {
-    fontSize: 15,
+  errorText: {
+    fontSize: 14,
+    textAlign: 'center',
     lineHeight: 20,
+    marginBottom: 24,
   },
-  inputContainer: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderTopWidth: 1,
-    gap: 10,
+  retryButton: {
+    paddingHorizontal: 32,
+    paddingVertical: 14,
+    borderRadius: 12,
   },
-  textInput: {
-    flex: 1,
-    minHeight: 44,
-    maxHeight: 100,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 22,
-    borderWidth: 1,
-    fontSize: 15,
-  },
-  sendButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    justifyContent: 'center',
-    alignItems: 'center',
+  retryButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });
