@@ -61,19 +61,19 @@ export default function DashboardScreen() {
   const [offlineCheckin, setOfflineCheckin] = useState<OfflineCheckin | null>(null);
   const [offlineChartData, setOfflineChartData] = useState<OfflineChartData[]>([]);
   
-  // Track loading state to prevent multiple simultaneous calls
-  const [isDataLoading, setIsDataLoading] = useState(false);
-  const isDataLoadingRef = useRef(false);
   // Track the last loaded date to avoid redundant loads
   const lastLoadedDateRef = useRef<string | null>(null);
   // Track if user data (profile/goal) has been loaded
   const userDataLoadedRef = useRef(false);
+  // Track if currently loading
+  const loadingRef = useRef(false);
 
   const loadOfflineData = useCallback(async () => {
     const [goalData, checkinData, chartDataArr] = await Promise.all([
       getOfflineGoal(),
       getOfflineTodayCheckin(),
       getOfflineChartData(),
+    ]);
     ]);
     setOfflineGoal(goalData);
     setOfflineCheckin(checkinData);
