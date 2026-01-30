@@ -12,34 +12,79 @@ interface MealInputs {
 interface DataState {
   profile: UserProfile | null;
   goal: UserGoal | null;
-  todayCheckin: DailyCheckin | null;
-  todayMeals: Meal[];
+  
+  // Date-based state
+  selectedDate: string; // YYYY-MM-DD format
+  selectedCheckin: DailyCheckin | null;
+  selectedMeals: Meal[];
+  
   recentActivities: Activity[];
   chartData: { date: string; calories: number }[];
   isLoading: boolean;
   
+  // Actions
+  setSelectedDate: (date: string) => void;
+  goToPreviousDay: () => void;
+  goToNextDay: () => void;
+  
   loadUserData: (userId: string) => Promise<void>;
-  loadTodayCheckin: (userId: string) => Promise<void>;
-  loadTodayMeals: (checkinId: string) => Promise<void>;
+  loadCheckinByDate: (userId: string, date: string) => Promise<void>;
+  loadMealsForCheckin: (checkinId: string) => Promise<void>;
   loadChartData: (userId: string) => Promise<void>;
+  
   updateWater: (userId: string, amount: number) => Promise<void>;
   updateSleep: (userId: string, hours: number) => Promise<void>;
-  updateCalories: (userId: string, calories: number) => Promise<void>;
   saveMeals: (userId: string, meals: MealInputs) => Promise<void>;
   saveProfile: (profile: Partial<UserProfile> & { user_id: string }) => Promise<void>;
   saveGoal: (goal: Partial<UserGoal> & { user_id: string }) => Promise<void>;
   addActivity: (userId: string, activity: { type: string; duration: number; calories: number }) => Promise<void>;
   refreshData: (userId: string) => Promise<void>;
+  
+  // Legacy compatibility
+  todayCheckin: DailyCheckin | null;
+  todayMeals: Meal[];
+  loadTodayCheckin: (userId: string) => Promise<void>;
+  loadTodayMeals: (checkinId: string) => Promise<void>;
 }
 
 export const useDataStore = create<DataState>((set, get) => ({
   profile: null,
   goal: null,
-  todayCheckin: null,
-  todayMeals: [],
+  
+  // Date-based state - default to today
+  selectedDate: db.getTodayDate(),
+  selectedCheckin: null,
+  selectedMeals: [],
+  
   recentActivities: [],
   chartData: [],
   isLoading: false,
+
+  // Date navigation
+  setSelectedDate: (date: string) => {
+    set({ selectedDate: date });
+  },
+
+  goToPreviousDay: () => {
+    const { selectedDate } = get();
+    const currentDate = new Date(selectedDate + 'T00:00:00');
+    currentDate.setDate(currentDate.getDate() - 1);
+    const newDate = currentDate.toISOString().split('T')[0];
+    set({ selectedDate: newDate });
+  },
+
+  goToNextDay: () => {
+    const { selectedDate } = get();
+    const today = db.getTodayDate();
+    
+    // Don't go beyond today
+    if (selectedDate >= today) return;
+    
+    const currentDate = new Date(selectedDate + 'T00:00:00');
+    currentDate.setDate(currentDate.getDate() + 1);
+    const newDate = currentDate.toISOString().split('T')[0];
+    set({ selectedDate: newDate });
+  },
 
   loadUserData: async (userId: string) => {
     set({ isLoading: true });
@@ -55,27 +100,46 @@ export const useDataStore = create<DataState>((set, get) => ({
     set({ isLoading: false });
   },
 
-  loadTodayCheckin: async (userId: string) => {
+  loadCheckinByDate: async (userId: string, date: string) => {
     try {
-      const checkin = await db.getOrCreateTodayCheckin(userId);
-      set({ todayCheckin: checkin });
+      const checkin = await db.getOrCreateCheckinByDate(userId, date);
+      set({ selectedCheckin: checkin });
       
-      // Also load meals for today's checkin
+      // Also load meals for this checkin
       if (checkin) {
-        await get().loadTodayMeals(checkin.id);
+        await get().loadMealsForCheckin(checkin.id);
       }
     } catch (err) {
-      console.log('Error loading today checkin:', err);
+      console.log('Error loading checkin for date:', err);
     }
   },
 
-  loadTodayMeals: async (checkinId: string) => {
+  loadMealsForCheckin: async (checkinId: string) => {
     try {
       const meals = await db.getMealsForCheckin(checkinId);
-      set({ todayMeals: meals });
+      set({ selectedMeals: meals });
     } catch (err) {
-      console.log('Error loading today meals:', err);
+      console.log('Error loading meals:', err);
     }
+  },
+
+  // Legacy compatibility - maps to selectedCheckin/selectedMeals
+  get todayCheckin() {
+    return get().selectedCheckin;
+  },
+  
+  get todayMeals() {
+    return get().selectedMeals;
+  },
+
+  loadTodayCheckin: async (userId: string) => {
+    const today = db.getTodayDate();
+    set({ selectedDate: today });
+    await get().loadCheckinByDate(userId, today);
+  },
+
+  loadTodayMeals: async (checkinId: string) => {
+    await get().loadMealsForCheckin(checkinId);
   },
 
   loadChartData: async (userId: string) => {
@@ -112,68 +176,32 @@ export const useDataStore = create<DataState>((set, get) => ({
   },
 
   updateWater: async (userId: string, amount: number) => {
-    const { todayCheckin } = get();
-    if (!todayCheckin) return;
+    const { selectedDate, selectedCheckin } = get();
+    if (!selectedCheckin) return;
 
-    const newAmount = (todayCheckin.water_intake_ml || 0) + amount;
-    const updated = await db.upsertDailyCheckin({
-      ...todayCheckin,
-      user_id: userId,
-      water_intake_ml: newAmount,
-    });
+    const updated = await db.updateWaterByDate(userId, selectedDate, amount);
     if (updated) {
-      set({ todayCheckin: updated });
+      set({ selectedCheckin: updated });
     }
   },
 
   updateSleep: async (userId: string, hours: number) => {
-    const { todayCheckin } = get();
-    if (!todayCheckin) return;
+    const { selectedDate, selectedCheckin } = get();
+    if (!selectedCheckin) return;
 
-    const updated = await db.upsertDailyCheckin({
-      ...todayCheckin,
-      user_id: userId,
-      sleep_hours: hours,
-    });
+    const updated = await db.updateSleepByDate(userId, selectedDate, hours);
     if (updated) {
-      set({ todayCheckin: updated });
-    }
-  },
-
-  updateCalories: async (userId: string, calories: number) => {
-    const { todayCheckin } = get();
-    if (!todayCheckin) return;
-
-    const updated = await db.upsertDailyCheckin({
-      ...todayCheckin,
-      user_id: userId,
-      total_calories_consumed: calories,
-    });
-    if (updated) {
-      set({ todayCheckin: updated });
+      set({ selectedCheckin: updated });
     }
   },
 
   saveMeals: async (userId: string, meals: MealInputs) => {
-    const { todayCheckin } = get();
-    if (!todayCheckin) return;
-
-    // Calculate total calories
-    const total = meals.breakfast + meals.lunch + meals.dinner + meals.snacks;
+    const { selectedDate } = get();
     
-    // Update daily_checkins with total calories
-    const updatedCheckin = await db.upsertDailyCheckin({
-      ...todayCheckin,
-      user_id: userId,
-      total_calories_consumed: total,
-    });
+    const { checkin, meals: savedMeals } = await db.saveMealsByDate(userId, selectedDate, meals);
     
-    if (updatedCheckin) {
-      set({ todayCheckin: updatedCheckin });
-      
-      // Write individual meal records to meals table
-      const savedMeals = await db.upsertMeals(userId, todayCheckin.id, meals);
-      set({ todayMeals: savedMeals });
+    if (checkin) {
+      set({ selectedCheckin: checkin, selectedMeals: savedMeals });
     }
   },
 
@@ -192,25 +220,19 @@ export const useDataStore = create<DataState>((set, get) => ({
   },
 
   addActivity: async (userId: string, activity: { type: string; duration: number; calories: number }) => {
-    const { todayCheckin } = get();
-    if (!todayCheckin) return;
-
-    await db.insertActivity({
-      user_id: userId,
-      checkin_id: todayCheckin.id,
-      activity_type: activity.type,
-      duration_minutes: activity.duration,
-      calories_burned: activity.calories,
-    });
+    const { selectedDate } = get();
+    
+    await db.addActivityByDate(userId, selectedDate, activity);
 
     // Reload chart data
     await get().loadChartData(userId);
   },
 
   refreshData: async (userId: string) => {
+    const { selectedDate } = get();
     await Promise.all([
       get().loadUserData(userId),
-      get().loadTodayCheckin(userId),
+      get().loadCheckinByDate(userId, selectedDate),
       get().loadChartData(userId),
     ]);
   },

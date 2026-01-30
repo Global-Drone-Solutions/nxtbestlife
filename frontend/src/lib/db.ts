@@ -17,6 +17,25 @@ export const getLastNDays = (n: number): string[] => {
   return dates;
 };
 
+// Format date for display (e.g., "Jan 30 · Fri")
+export const formatDateDisplay = (dateStr: string): string => {
+  const date = new Date(dateStr + 'T00:00:00');
+  const today = getTodayDate();
+  
+  if (dateStr === today) {
+    return 'Today';
+  }
+  
+  const options: Intl.DateTimeFormatOptions = { month: 'short', day: 'numeric', weekday: 'short' };
+  const formatted = date.toLocaleDateString('en-US', options);
+  // Convert "Fri, Jan 30" to "Jan 30 · Fri"
+  const parts = formatted.split(', ');
+  if (parts.length === 2) {
+    return `${parts[1]} · ${parts[0]}`;
+  }
+  return formatted;
+};
+
 // User Profile
 export const getUserProfile = async (userId: string): Promise<UserProfile | null> => {
   const supabase = getSupabase();
@@ -98,24 +117,48 @@ export const upsertUserGoal = async (goal: Partial<UserGoal> & { user_id: string
   return data;
 };
 
-// Daily Checkins
-export const getTodayCheckin = async (userId: string): Promise<DailyCheckin | null> => {
+// ============================================
+// Daily Checkins - Date-based functions
+// ============================================
+
+// Get checkin by specific date
+export const getCheckinByDate = async (userId: string, date: string): Promise<DailyCheckin | null> => {
   const supabase = getSupabase();
   if (!supabase) return null;
 
-  const today = getTodayDate();
   const { data, error } = await supabase
     .from('daily_checkins')
     .select('*')
     .eq('user_id', userId)
-    .eq('checkin_date', today)
+    .eq('checkin_date', date)
     .single();
 
   if (error) {
-    console.log('Error fetching today checkin:', error.message);
+    console.log('Error fetching checkin for date:', error.message);
     return null;
   }
   return data;
+};
+
+// Get or create checkin for a specific date
+export const getOrCreateCheckinByDate = async (userId: string, date: string): Promise<DailyCheckin | null> => {
+  let checkin = await getCheckinByDate(userId, date);
+  if (!checkin) {
+    checkin = await upsertDailyCheckin({
+      user_id: userId,
+      checkin_date: date,
+      total_calories_consumed: 0,
+      water_intake_ml: 0,
+      sleep_hours: null,
+      steps_count: null,
+    });
+  }
+  return checkin;
+};
+
+// Legacy: Get today's checkin
+export const getTodayCheckin = async (userId: string): Promise<DailyCheckin | null> => {
+  return getCheckinByDate(userId, getTodayDate());
 };
 
 export const upsertDailyCheckin = async (checkin: Partial<DailyCheckin> & { user_id: string; checkin_date: string }): Promise<DailyCheckin | null> => {
@@ -138,22 +181,15 @@ export const upsertDailyCheckin = async (checkin: Partial<DailyCheckin> & { user
   return data;
 };
 
+// Legacy: Get or create today's checkin
 export const getOrCreateTodayCheckin = async (userId: string): Promise<DailyCheckin | null> => {
-  let checkin = await getTodayCheckin(userId);
-  if (!checkin) {
-    checkin = await upsertDailyCheckin({
-      user_id: userId,
-      checkin_date: getTodayDate(),
-      total_calories_consumed: 0,
-      water_intake_ml: 0,
-      sleep_hours: null,
-      steps_count: null,
-    });
-  }
-  return checkin;
+  return getOrCreateCheckinByDate(userId, getTodayDate());
 };
 
+// ============================================
 // Activities (for exercise chart)
+// ============================================
+
 export const getActivitiesLastNDays = async (userId: string, days: number): Promise<Activity[]> => {
   const supabase = getSupabase();
   if (!supabase) return [];
@@ -194,7 +230,28 @@ export const insertActivity = async (activity: Omit<Activity, 'id' | 'created_at
   return data;
 };
 
+// Add activity by date (get/create checkin first)
+export const addActivityByDate = async (
+  userId: string, 
+  date: string, 
+  activity: { type: string; duration: number; calories: number }
+): Promise<Activity | null> => {
+  const checkin = await getOrCreateCheckinByDate(userId, date);
+  if (!checkin) return null;
+
+  return insertActivity({
+    user_id: userId,
+    checkin_id: checkin.id,
+    activity_type: activity.type,
+    duration_minutes: activity.duration,
+    calories_burned: activity.calories,
+  });
+};
+
+// ============================================
 // Meals
+// ============================================
+
 export const getMealsForCheckin = async (checkinId: string): Promise<Meal[]> => {
   const supabase = getSupabase();
   if (!supabase) return [];
@@ -273,6 +330,32 @@ export const upsertMeals = async (
   return data || [];
 };
 
+// Save meals by date (get/create checkin first)
+export const saveMealsByDate = async (
+  userId: string,
+  date: string,
+  meals: { breakfast: number; lunch: number; dinner: number; snacks: number }
+): Promise<{ checkin: DailyCheckin | null; meals: Meal[] }> => {
+  const checkin = await getOrCreateCheckinByDate(userId, date);
+  if (!checkin) return { checkin: null, meals: [] };
+
+  // Calculate total calories
+  const total = meals.breakfast + meals.lunch + meals.dinner + meals.snacks;
+
+  // Update checkin with total calories
+  const updatedCheckin = await upsertDailyCheckin({
+    ...checkin,
+    user_id: userId,
+    checkin_date: date,
+    total_calories_consumed: total,
+  });
+
+  // Write individual meal records
+  const savedMeals = await upsertMeals(userId, checkin.id, meals);
+
+  return { checkin: updatedCheckin, meals: savedMeals };
+};
+
 // Get daily checkins for multiple dates (for chart data)
 export const getCheckinsForDates = async (userId: string, dates: string[]): Promise<DailyCheckin[]> => {
   const supabase = getSupabase();
@@ -290,4 +373,43 @@ export const getCheckinsForDates = async (userId: string, dates: string[]): Prom
     return [];
   }
   return data || [];
+};
+
+// ============================================
+// Date-based water update
+// ============================================
+export const updateWaterByDate = async (
+  userId: string,
+  date: string,
+  amount: number
+): Promise<DailyCheckin | null> => {
+  const checkin = await getOrCreateCheckinByDate(userId, date);
+  if (!checkin) return null;
+
+  const newAmount = (checkin.water_intake_ml || 0) + amount;
+  return upsertDailyCheckin({
+    ...checkin,
+    user_id: userId,
+    checkin_date: date,
+    water_intake_ml: newAmount,
+  });
+};
+
+// ============================================
+// Date-based sleep update
+// ============================================
+export const updateSleepByDate = async (
+  userId: string,
+  date: string,
+  hours: number
+): Promise<DailyCheckin | null> => {
+  const checkin = await getOrCreateCheckinByDate(userId, date);
+  if (!checkin) return null;
+
+  return upsertDailyCheckin({
+    ...checkin,
+    user_id: userId,
+    checkin_date: date,
+    sleep_hours: hours,
+  });
 };
